@@ -134,10 +134,3 @@ npm run build    # production build → custom_components/carto_forge/www/
 After Python changes: restart HA. After frontend changes: hard-refresh (Ctrl+F5).
 
 ---
-
-## Roadmap
-
-- [ ] Entity z-index reordering
-- [ ] Two-finger pan on mobile
-- [ ] Internationalization (i18n)
-- [ ] Submit to HACS default repository
