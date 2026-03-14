@@ -6,6 +6,8 @@ import {
   mdiVectorSquare,
   mdiEraser,
   mdiMapMarkerPlus,
+  mdiUndo,
+  mdiRedo,
 } from '@mdi/js';
 import type { DrawTool } from '../types/floorplan';
 import { DEFAULT_SETTINGS, type CartoForgeSettings } from '../types/settings';
@@ -29,6 +31,8 @@ const TOOLS: Tool[] = [
 export class FpDrawToolbar extends LitElement {
   @property() activeTool: DrawTool = 'select';
   @property({ attribute: false }) settings: CartoForgeSettings = structuredClone(DEFAULT_SETTINGS);
+  @property({ type: Boolean }) canUndo = false;
+  @property({ type: Boolean }) canRedo = false;
 
   static styles = css`
     :host {
@@ -101,6 +105,16 @@ export class FpDrawToolbar extends LitElement {
       opacity: 0.7;
     }
 
+    button:disabled {
+      opacity: 0.28;
+      cursor: not-allowed;
+    }
+
+    button:disabled:hover {
+      background: none;
+      color: var(--secondary-text-color, #aaa);
+    }
+
     /* Tooltip */
     button::after {
       content: attr(data-hint);
@@ -166,9 +180,32 @@ export class FpDrawToolbar extends LitElement {
     this.dispatchEvent(new CustomEvent('tool-change', { detail: id, bubbles: true, composed: true }));
   }
 
+  private _svgIcon(path: string) {
+    return svg`<svg viewBox="0 0 24 24" width="20" height="20"><path d="${path}" fill="currentColor"/></svg>`;
+  }
+
   render() {
     const { shortcuts, keyboardShortcutsEnabled } = this.settings;
     return html`
+      <button
+        ?disabled=${!this.canUndo}
+        data-hint="Annuler (Ctrl+Z)"
+        aria-label="Annuler"
+        @click=${() => this.dispatchEvent(new CustomEvent('undo', { bubbles: true, composed: true }))}
+      >
+        <span class="icon">${this._svgIcon(mdiUndo)}</span>
+        <span class="label">Annuler</span>
+      </button>
+      <button
+        ?disabled=${!this.canRedo}
+        data-hint="Rétablir (Ctrl+Y)"
+        aria-label="Rétablir"
+        @click=${() => this.dispatchEvent(new CustomEvent('redo', { bubbles: true, composed: true }))}
+      >
+        <span class="icon">${this._svgIcon(mdiRedo)}</span>
+        <span class="label">Rétablir</span>
+      </button>
+      <div class="separator"></div>
       ${TOOLS.map((t, i) => html`
         ${i === 3 || i === 4 ? html`<div class="separator"></div>` : ''}
         <button
@@ -180,9 +217,7 @@ export class FpDrawToolbar extends LitElement {
           ${keyboardShortcutsEnabled ? html`
             <span class="shortcut">${shortcuts[t.id as keyof typeof shortcuts].toUpperCase()}</span>
           ` : ''}
-          <span class="icon">
-            ${svg`<svg viewBox="0 0 24 24" width="20" height="20"><path d="${t.path}" fill="currentColor"/></svg>`}
-          </span>
+          <span class="icon">${this._svgIcon(t.path)}</span>
           <span class="label">${t.label}</span>
         </button>
       `)}

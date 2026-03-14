@@ -73,6 +73,13 @@ export class FpMapViewer extends LitElement {
   @state() private _panX = 0;
   @state() private _panY = 0;
 
+  // ---- Undo / Redo ----
+  private _undoStack: FloorMap[] = [];
+  private _redoStack: FloorMap[] = [];
+  @state() private _canUndo = false;
+  @state() private _canRedo = false;
+  private _currentMapId: string | undefined;
+
   // ---- Dessin ----
   @state() private _wallPoints: Array<{ x: number; y: number }> = [];
   @state() private _preview: { x: number; y: number } | null = null;
@@ -568,14 +575,28 @@ export class FpMapViewer extends LitElement {
     this._preview = null;
   }
 
-  private _onEscape = (e: KeyboardEvent): void => {
-    if (e.key !== 'Escape') return;
-    this._wallPoints = [];
-    this._preview = null;
-    this._roomDraft = null;
-    this._roomStart = null;
-    this._selectedIds = new Set();
-    this._selectedEntityIds = new Set();
+  private _onKeyDown = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape') {
+      this._wallPoints = [];
+      this._preview = null;
+      this._roomDraft = null;
+      this._roomStart = null;
+      this._selectedIds = new Set();
+      this._selectedEntityIds = new Set();
+      return;
+    }
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        this._undo();
+        return;
+      }
+      if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) {
+        e.preventDefault();
+        this._redo();
+        return;
+      }
+    }
   };
 
   private _eraseElement(id: string): void {
@@ -583,19 +604,56 @@ export class FpMapViewer extends LitElement {
     this._emitMapUpdate({ ...this.map, drawing: this.map.drawing.filter((el) => el.id !== id) });
   }
 
+  // Quand la carte change (autre map_id) → reset l'historique
+  override updated(changed: Map<string, unknown>): void {
+    if (changed.has('map') && this.map?.id !== this._currentMapId) {
+      this._undoStack = [];
+      this._redoStack = [];
+      this._canUndo = false;
+      this._canRedo = false;
+      this._currentMapId = this.map?.id;
+    }
+  }
+
   private _emitMapUpdate(map: FloorMap): void {
+    if (this.map) {
+      this._undoStack = [...this._undoStack.slice(-49), this.map];
+      this._redoStack = [];
+      this._canUndo = true;
+      this._canRedo = false;
+    }
     this.dispatchEvent(new CustomEvent('map-updated', { detail: map, bubbles: true, composed: true }));
+  }
+
+  private _undo(): void {
+    if (!this.map || this._undoStack.length === 0) return;
+    const prev = this._undoStack[this._undoStack.length - 1];
+    this._redoStack = [...this._redoStack.slice(-49), this.map];
+    this._undoStack = this._undoStack.slice(0, -1);
+    this._canUndo = this._undoStack.length > 0;
+    this._canRedo = true;
+    this.dispatchEvent(new CustomEvent('map-updated', { detail: prev, bubbles: true, composed: true }));
+  }
+
+  private _redo(): void {
+    if (!this.map || this._redoStack.length === 0) return;
+    const next = this._redoStack[this._redoStack.length - 1];
+    this._undoStack = [...this._undoStack.slice(-49), this.map];
+    this._redoStack = this._redoStack.slice(0, -1);
+    this._canUndo = true;
+    this._canRedo = this._redoStack.length > 0;
+    this.dispatchEvent(new CustomEvent('map-updated', { detail: next, bubbles: true, composed: true }));
   }
 
   connectedCallback(): void {
     super.connectedCallback();
-    window.addEventListener('keydown', this._onEscape);
+    window.addEventListener('keydown', this._onKeyDown);
     this.addEventListener('wheel', this._onWheel, { passive: false });
   }
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
-    window.removeEventListener('keydown', this._onEscape);
+    window.removeEventListener('keydown', this._onKeyDown);
     this.removeEventListener('wheel', this._onWheel);
   }
 
@@ -687,11 +745,15 @@ export class FpMapViewer extends LitElement {
         ? html`<fp-draw-toolbar
             .activeTool=${this.drawTool}
             .settings=${this.settings}
+            .canUndo=${this._canUndo}
+            .canRedo=${this._canRedo}
             @tool-change=${(e: CustomEvent<DrawTool>) => {
               this._selectedIds = new Set();
               this._selectedEntityIds = new Set();
               this.dispatchEvent(new CustomEvent('tool-change', { detail: e.detail, bubbles: true, composed: true }));
             }}
+            @undo=${() => this._undo()}
+            @redo=${() => this._redo()}
           ></fp-draw-toolbar>`
         : nothing}
 
