@@ -45,10 +45,19 @@ panel_custom:
     module_url: /local/carto_forge/carto-forge-panel.js
 ```
 
+### Lovelace Resource
+
+In HA → **Settings** → **Dashboards** → **Resources** → Add:
+
+| URL | Type |
+|-----|------|
+| `/local/carto_forge/carto-forge-panel.js` | JavaScript Module |
+
 ### Docker (live reload)
 
 ```bash
-bash dev.sh   # starts HA container + Vite watch mode
+docker compose -f ~/ha-dev/docker-compose.yml up -d
+cd frontend && npm run watch
 ```
 
 After Python changes: restart the container. After frontend changes: hard-refresh the browser (Ctrl+F5).
@@ -113,7 +122,7 @@ height: 500
 | View | Click | Toggle entity (on/off) |
 | View | Long press (600 ms) | Open native HA more-info dialog |
 | Edit | Drag | Move entity |
-| Edit | Long press (600 ms) | Open entity config (icon picker) |
+| Edit | Long press (600 ms) | Open entity config (icon picker + delete) |
 
 ---
 
@@ -131,9 +140,5 @@ npm run watch    # watch mode (used by dev.sh)
 
 - [ ] Entity z-index reordering
 - [ ] Two-finger pan on mobile
+- [ ] Internationalization (i18n)
 - [ ] HACS publication
-- [ ] ESLint + Prettier
-- [ ] Unit tests (Vitest)
-- [ ] Python integration tests (pytest)
-- [ ] TypeScript strict mode
-- [ ] GitHub Actions CI

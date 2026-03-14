@@ -133,6 +133,7 @@ export class FpMapViewer extends LitElement {
 
     // Mode édition + sélection → rubber-band (les éléments arrêtent la propagation)
     if (this.viewMode === 'edit' && this.drawTool === 'select') {
+      if (this._elemDragStart) return; // un élément a déjà pris la main
       this._rubberBandStart = this._toSvg(e);
       (e.currentTarget as Element).setPointerCapture(e.pointerId);
       return;
@@ -215,6 +216,8 @@ export class FpMapViewer extends LitElement {
       this._elemDragStart = null;
       this._elemDragStarted = false;
       this._dragOffset = null;
+      this._rubberBandStart = null;
+      this._rubberBand = null;
       return;
     }
 
@@ -276,6 +279,13 @@ export class FpMapViewer extends LitElement {
       en.placementId === placementId ? { ...en, icon } : en
     );
     this._emitMapUpdate({ ...this.map, entities });
+  };
+
+  private _onEntityRemove = (e: CustomEvent<{ placementId: string }>): void => {
+    if (!this.map) return;
+    const entities = this.map.entities.filter((en) => en.placementId !== e.detail.placementId);
+    this._emitMapUpdate({ ...this.map, entities });
+    this._configPlacement = null;
   };
 
   // -------------------------------------------------------------------------
@@ -554,6 +564,7 @@ export class FpMapViewer extends LitElement {
         @fp-click=${this._onEntityClick}
         @fp-entity-config=${this._onEntityConfig}
         @icon-change=${this._onIconChange}
+        @entity-remove=${this._onEntityRemove}
         @fp-drag-start=${this._onDragStart}
         @fp-drag-move=${this._onDragMove}
         @fp-drag-end=${this._onDragEnd}

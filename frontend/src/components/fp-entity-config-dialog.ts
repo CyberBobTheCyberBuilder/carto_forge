@@ -49,6 +49,24 @@ export class FpEntityConfigDialog extends LitElement {
       line-height: 1;
       padding: 2px;
     }
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--divider-color, #444);
+    }
+    button.delete {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      color: #e53935;
+      padding: 6px 10px;
+      border-radius: 6px;
+    }
+    button.delete:hover { background: rgba(229, 57, 53, 0.1); }
     h3 {
       margin: 0 0 10px;
       font-size: 13px;
@@ -61,6 +79,14 @@ export class FpEntityConfigDialog extends LitElement {
 
   private _close(): void {
     this.dispatchEvent(new CustomEvent('cancel', { bubbles: true, composed: true }));
+  }
+
+  private _delete(): void {
+    this.dispatchEvent(new CustomEvent('entity-remove', {
+      detail: { placementId: this.placement.placementId },
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   private _onIconPick(e: CustomEvent<string>): void {
@@ -90,6 +116,10 @@ export class FpEntityConfigDialog extends LitElement {
             .current=${icon}
             @icon-pick=${this._onIconPick}
           ></fp-icon-picker>
+
+          <div class="footer">
+            <button class="delete" @click=${this._delete}>Supprimer l'entité</button>
+          </div>
         </div>
       </div>
     `;
