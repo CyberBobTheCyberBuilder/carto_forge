@@ -4,6 +4,7 @@ import './fp-entity-icon';
 import './fp-entity-config-dialog';
 import './fp-add-entity-dialog';
 import './fp-draw-toolbar';
+import './fp-label-dialog';
 import type {
   FloorMap, PlacedEntity, ViewMode, DrawTool,
   DrawingElement, WallElement, RoomElement, PolygonElement,
@@ -29,6 +30,12 @@ export class FpMapViewer extends LitElement {
 
   // Modale config entité (édition)
   @state() private _configPlacement: PlacedEntity | null = null;
+  // Modale saisie de label (création pièce/polygone et édition)
+  @state() private _labelDialog: {
+    mode: 'room' | 'polygon' | 'edit';
+    elementId?: string;
+    current?: string;
+  } | null = null;
 
   // ---- Sélection & déplacement d'éléments dessinés ----
   @state() private _selectedIds = new Set<string>();
@@ -40,6 +47,7 @@ export class FpMapViewer extends LitElement {
   // Non-@state : ne déclenche pas de re-render pendant le geste
   private _elemDragStart: { x: number; y: number } | null = null;
   private _elemDragStarted = false;
+  private _elemLongPressTimer: ReturnType<typeof setTimeout> | null = null;
   private _rubberBandStart: { x: number; y: number } | null = null;
 
   // ---- Drag entités ----
@@ -179,6 +187,10 @@ export class FpMapViewer extends LitElement {
         if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
         this._elemDragStarted = true;
       }
+      if (!this._elemDragStarted && Math.hypot(dx, dy) >= DRAG_THRESHOLD) {
+        // Le drag commence : annuler le long press
+        if (this._elemLongPressTimer) { clearTimeout(this._elemLongPressTimer); this._elemLongPressTimer = null; }
+      }
       this._dragOffset = { dx, dy };
       // Si des entités sont sélectionnées, les faire suivre visuellement
       if (this._groupDragOrigins.size > 0) this._entityDragOffset = { dx, dy };
@@ -232,6 +244,7 @@ export class FpMapViewer extends LitElement {
       this._groupDragOrigins.clear();
       this._rubberBandStart = null;
       this._rubberBand = null;
+      if (this._elemLongPressTimer) { clearTimeout(this._elemLongPressTimer); this._elemLongPressTimer = null; }
       return;
     }
 
@@ -277,6 +290,20 @@ export class FpMapViewer extends LitElement {
 
     this._elemDragStart = this._toSvg(e);
     this._elemDragStarted = false;
+
+    // Long press → ouvre la modale de label (pièces et polygones uniquement)
+    if (el.type !== 'wall') {
+      this._elemLongPressTimer = setTimeout(() => {
+        this._elemLongPressTimer = null;
+        if (!this._elemDragStarted) {
+          this._labelDialog = {
+            mode: 'edit',
+            elementId: el.id,
+            current: (el as { label?: string }).label,
+          };
+        }
+      }, 600);
+    }
 
     // Prépare le drag groupé des entités sélectionnées
     this._groupDragOrigins.clear();
@@ -453,7 +480,32 @@ export class FpMapViewer extends LitElement {
   private _onSvgPointerUp(): void {
     if (!this.map || this.drawTool !== 'room') return;
     if (this._roomDraft && this._roomDraft.w > 10 && this._roomDraft.h > 10) {
-      const label = prompt('Nom de la pièce (optionnel)') ?? '';
+      this._labelDialog = { mode: 'room' };
+    } else {
+      this._roomDraft = null;
+      this._roomStart = null;
+    }
+  }
+
+  private _closeWallAsPolygon(): void {
+    if (!this.map) return;
+    this._labelDialog = { mode: 'polygon' };
+    // _wallPoints conservés jusqu'à la confirmation
+  }
+
+  private _editElementLabel(e: Event, elementId: string, currentLabel?: string): void {
+    if (this.viewMode !== 'edit' || this.drawTool !== 'select') return;
+    e.stopPropagation();
+    this._labelDialog = { mode: 'edit', elementId, current: currentLabel };
+  }
+
+  private _onLabelConfirm = (e: CustomEvent<{ label: string }>): void => {
+    const dialog = this._labelDialog;
+    this._labelDialog = null;
+    if (!dialog || !this.map) return;
+    const { label } = e.detail;
+
+    if (dialog.mode === 'room' && this._roomDraft) {
       const el: RoomElement = {
         id: crypto.randomUUID(), type: 'room',
         x: this._roomDraft.x, y: this._roomDraft.y,
@@ -461,36 +513,52 @@ export class FpMapViewer extends LitElement {
         ...(label ? { label } : {}),
       };
       this._emitMapUpdate({ ...this.map, drawing: [...this.map.drawing, el] });
+      this._roomDraft = null;
+      this._roomStart = null;
+    } else if (dialog.mode === 'polygon') {
+      const el: PolygonElement = {
+        id: crypto.randomUUID(), type: 'polygon',
+        points: [...this._wallPoints],
+        ...(label ? { label } : {}),
+      };
+      this._emitMapUpdate({ ...this.map, drawing: [...this.map.drawing, el] });
+      this._wallPoints = [];
+      this._preview = null;
+    } else if (dialog.mode === 'edit' && dialog.elementId) {
+      this._emitMapUpdate({
+        ...this.map,
+        drawing: this.map.drawing.map((d) =>
+          d.id === dialog.elementId ? { ...d, label: label || undefined } : d
+        ),
+      });
     }
-    this._roomDraft = null;
-    this._roomStart = null;
-  }
+  };
 
-  private _closeWallAsPolygon(): void {
-    if (!this.map) return;
-    const label = prompt('Nom de la pièce (optionnel)') ?? '';
-    const el: PolygonElement = {
-      id: crypto.randomUUID(), type: 'polygon',
-      points: [...this._wallPoints],
-      ...(label ? { label } : {}),
-    };
-    this._emitMapUpdate({ ...this.map, drawing: [...this.map.drawing, el] });
-    this._wallPoints = [];
-    this._preview = null;
-  }
-
-  private _editElementLabel(e: Event, elementId: string, currentLabel?: string): void {
-    if (this.viewMode !== 'edit' || this.drawTool !== 'select') return;
-    e.stopPropagation();
-    const label = prompt('Nom de la pièce', currentLabel ?? '');
-    if (label === null) return;
-    this._emitMapUpdate({
-      ...this.map!,
-      drawing: this.map!.drawing.map((d) =>
-        d.id === elementId ? { ...d, label: label || undefined } : d
-      ),
-    });
-  }
+  private _onLabelCancel = (): void => {
+    const dialog = this._labelDialog;
+    this._labelDialog = null;
+    if (!dialog || !this.map) return;
+    // Création sans label (la forme est déjà dessinée)
+    if (dialog.mode === 'room' && this._roomDraft) {
+      const el: RoomElement = {
+        id: crypto.randomUUID(), type: 'room',
+        x: this._roomDraft.x, y: this._roomDraft.y,
+        width: this._roomDraft.w, height: this._roomDraft.h,
+      };
+      this._emitMapUpdate({ ...this.map, drawing: [...this.map.drawing, el] });
+      this._roomDraft = null;
+      this._roomStart = null;
+    } else if (dialog.mode === 'polygon') {
+      const el: PolygonElement = {
+        id: crypto.randomUUID(), type: 'polygon',
+        points: [...this._wallPoints],
+      };
+      this._emitMapUpdate({ ...this.map, drawing: [...this.map.drawing, el] });
+      this._wallPoints = [];
+      this._preview = null;
+    }
+    // mode 'edit' : annuler = ne rien changer
+  };
 
   private _onSvgDblClick(): void {
     if (!this.map || this.drawTool !== 'wall' || this._wallPoints.length < 2) return;
@@ -756,6 +824,16 @@ export class FpMapViewer extends LitElement {
           @add-entity=${this._onDialogAddEntity}
           @cancel=${this._onDialogCancel}
         ></fp-add-entity-dialog>
+      ` : nothing}
+
+      ${this._labelDialog ? html`
+        <fp-label-dialog
+          title=${this._labelDialog.mode === 'edit' ? 'Nom de la pièce' : 'Nommer la pièce'}
+          value=${this._labelDialog.current ?? ''}
+          placeholder="Optionnel…"
+          @confirm=${this._onLabelConfirm}
+          @cancel=${this._onLabelCancel}
+        ></fp-label-dialog>
       ` : nothing}
     `;
   }
