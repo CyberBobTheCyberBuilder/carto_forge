@@ -1,0 +1,16 @@
+# Build frontend
+custom_components/carto_forge/www/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# Divers
+.DS_Store
+*.log

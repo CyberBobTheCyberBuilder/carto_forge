@@ -1,0 +1,7 @@
+save_config:
+  name: Save Floorplan Config
+  description: Sauvegarde la configuration des cartes.
+  fields:
+    config:
+      description: Configuration JSON complète des cartes
+      example: '{"maps": []}'

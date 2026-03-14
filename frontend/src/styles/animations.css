@@ -1,0 +1,12 @@
+@keyframes entity-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.6); }
+  50% { opacity: 0.8; box-shadow: 0 0 0 8px rgba(255, 215, 0, 0); }
+}
+
+@keyframes entity-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+.state-on    { animation: entity-pulse 2s infinite; }
+.state-alarm { animation: entity-blink 0.8s infinite; }

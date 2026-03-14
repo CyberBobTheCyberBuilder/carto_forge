@@ -1,0 +1,16 @@
+/* Tokens CSS imitant le thème HA pour le serveur de dev */
+:root {
+  --primary-color: #3498db;
+  --primary-background-color: #1c1c1c;
+  --secondary-background-color: #2a2a2a;
+  --card-background-color: #2d2d2d;
+  --primary-text-color: #e0e0e0;
+  --secondary-text-color: #aaa;
+  --app-header-background-color: #1a1a2e;
+  --app-header-text-color: #ffffff;
+  --divider-color: #444;
+  --paper-font-body1_-_font-family: "Roboto", sans-serif;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; font-family: var(--paper-font-body1_-_font-family); }
