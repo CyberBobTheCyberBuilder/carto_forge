@@ -1,18 +1,50 @@
-import { LitElement, html, css } from 'lit';
+import { LitElement, html, css, svg } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import {
+  mdiCursorDefaultOutline,
+  mdiVectorLine,
+  mdiVectorSquare,
+  mdiEraser,
+} from '@mdi/js';
 import type { DrawTool } from '../types/floorplan';
 
 interface Tool {
   id: DrawTool;
-  icon: string;
+  path: string;
   label: string;
+  shortcut: string;
+  hint: string;
 }
 
 const TOOLS: Tool[] = [
-  { id: 'select',  icon: '↖',  label: 'Sélectionner / déplacer' },
-  { id: 'wall',    icon: '━',  label: 'Mur (clic = ajouter un point, double-clic = terminer)' },
-  { id: 'room',    icon: '□',  label: 'Pièce (glisser pour dessiner)' },
-  { id: 'eraser',  icon: '✕',  label: 'Gomme' },
+  {
+    id: 'select',
+    path: mdiCursorDefaultOutline,
+    label: 'Sélection',
+    shortcut: 'V',
+    hint: 'Sélectionner et déplacer',
+  },
+  {
+    id: 'wall',
+    path: mdiVectorLine,
+    label: 'Mur',
+    shortcut: 'W',
+    hint: 'Clic = point · Double-clic = fin · 1er point = fermer',
+  },
+  {
+    id: 'room',
+    path: mdiVectorSquare,
+    label: 'Pièce',
+    shortcut: 'R',
+    hint: 'Glisser pour dessiner un rectangle',
+  },
+  {
+    id: 'eraser',
+    path: mdiEraser,
+    label: 'Gomme',
+    shortcut: 'E',
+    hint: 'Cliquer sur un élément pour le supprimer',
+  },
 ];
 
 @customElement('fp-draw-toolbar')
@@ -22,80 +54,146 @@ export class FpDrawToolbar extends LitElement {
   static styles = css`
     :host {
       display: flex;
-      align-items: center;
+      flex-direction: column;
       gap: 4px;
-      padding: 6px 12px;
-      background: var(--secondary-background-color, #2a2a2a);
-      border-bottom: 1px solid var(--divider-color, #444);
+      padding: 8px;
+      background: var(--card-background-color, #2d2d2d);
+      border-radius: 14px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.06);
     }
-    .label {
-      font-size: 11px;
-      color: var(--secondary-text-color, #aaa);
-      margin-right: 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
+
     button {
-      width: 36px;
-      height: 36px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      width: 56px;
+      height: 56px;
       border: 1px solid transparent;
-      border-radius: 6px;
+      border-radius: 10px;
       background: none;
-      color: var(--primary-text-color, #e0e0e0);
+      color: var(--secondary-text-color, #aaa);
       cursor: pointer;
-      font-size: 16px;
+      padding: 0;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+
+    button:hover {
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--primary-text-color, #e0e0e0);
+    }
+
+    button.active {
+      background: var(--primary-color, #03a9f4);
+      border-color: transparent;
+      color: #fff;
+      box-shadow: 0 0 0 3px rgba(3, 169, 244, 0.25);
+    }
+
+    .icon {
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: background 0.15s;
-      position: relative;
+      flex-shrink: 0;
     }
-    button:hover { background: var(--card-background-color, #333); }
-    button.active {
-      background: var(--primary-color, #03a9f4);
-      border-color: var(--primary-color, #03a9f4);
-      color: #fff;
+
+    .label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.2px;
+      line-height: 1;
     }
-    button[title]:hover::after {
-      content: attr(title);
+
+    .shortcut {
       position: absolute;
-      top: calc(100% + 6px);
-      left: 50%;
-      transform: translateX(-50%);
+      top: 4px;
+      right: 5px;
+      font-size: 9px;
+      font-weight: 600;
+      color: inherit;
+      opacity: 0.5;
+      line-height: 1;
+    }
+
+    button.active .shortcut {
+      opacity: 0.7;
+    }
+
+    /* Tooltip */
+    button::after {
+      content: attr(data-hint);
+      position: absolute;
+      left: calc(100% + 10px);
+      top: 50%;
+      transform: translateY(-50%);
       white-space: nowrap;
-      background: #000;
+      background: rgba(0, 0, 0, 0.85);
       color: #fff;
       font-size: 11px;
-      padding: 3px 7px;
-      border-radius: 4px;
+      padding: 5px 10px;
+      border-radius: 6px;
       pointer-events: none;
-      z-index: 10;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 100;
     }
-    .hint {
-      margin-left: auto;
-      font-size: 11px;
-      color: var(--secondary-text-color, #aaa);
-      font-style: italic;
+
+    button:hover::after {
+      opacity: 1;
+    }
+
+    .separator {
+      height: 1px;
+      background: rgba(255, 255, 255, 0.07);
+      margin: 2px 6px;
     }
   `;
 
+  private _keyHandler = (e: KeyboardEvent) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    const map: Record<string, DrawTool> = { v: 'select', w: 'wall', r: 'room', e: 'eraser' };
+    const tool = map[e.key.toLowerCase()];
+    if (tool) {
+      e.preventDefault();
+      e.stopPropagation();
+      this._dispatch(tool);
+    }
+  };
+
+  connectedCallback() {
+    super.connectedCallback();
+    document.addEventListener('keydown', this._keyHandler);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    document.removeEventListener('keydown', this._keyHandler);
+  }
+
+  private _dispatch(id: DrawTool) {
+    this.dispatchEvent(new CustomEvent('tool-change', { detail: id, bubbles: true, composed: true }));
+  }
+
   render() {
-    const active = TOOLS.find((t) => t.id === this.activeTool);
     return html`
-      <span class="label">Outil</span>
-      ${TOOLS.map(
-        (t) => html`
-          <button
-            class=${t.id === this.activeTool ? 'active' : ''}
-            title=${t.label}
-            @click=${() =>
-              this.dispatchEvent(
-                new CustomEvent('tool-change', { detail: t.id, bubbles: true, composed: true })
-              )}
-          >${t.icon}</button>
-        `
-      )}
-      ${active ? html`<span class="hint">${active.label}</span>` : ''}
+      ${TOOLS.map((t, i) => html`
+        ${i === 3 ? html`<div class="separator"></div>` : ''}
+        <button
+          class=${t.id === this.activeTool ? 'active' : ''}
+          data-hint=${t.hint}
+          aria-label=${t.label}
+          @click=${() => this._dispatch(t.id)}
+        >
+          <span class="shortcut">${t.shortcut}</span>
+          <span class="icon">
+            ${svg`<svg viewBox="0 0 24 24" width="20" height="20"><path d="${t.path}" fill="currentColor"/></svg>`}
+          </span>
+          <span class="label">${t.label}</span>
+        </button>
+      `)}
     `;
   }
 }

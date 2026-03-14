@@ -90,9 +90,9 @@ export class FpMapViewer extends LitElement {
   private _roomStart: { x: number; y: number } | null = null;
 
   static styles = css`
-    :host { display: flex; flex-direction: column; width: 100%; height: 100%; overflow: hidden; }
-    fp-draw-toolbar { flex-shrink: 0; }
+    :host { display: flex; flex-direction: column; width: 100%; height: 100%; overflow: hidden; position: relative; }
     .svg-wrapper { flex: 1; overflow: hidden; touch-action: none; }
+    fp-draw-toolbar { position: absolute; left: 14px; top: 14px; z-index: 20; }
     svg { width: 100%; height: 100%; display: block; cursor: grab; }
     svg.tool-select { cursor: default; }
     svg.tool-wall, svg.tool-room { cursor: crosshair; }
@@ -566,7 +566,7 @@ export class FpMapViewer extends LitElement {
       ${this.viewMode === 'edit'
         ? html`<fp-draw-toolbar .activeTool=${this.drawTool}
             @tool-change=${(e: CustomEvent<DrawTool>) => {
-              this._selectedIds = new Set(); // Change d'outil → désélectionne
+              this._selectedIds = new Set();
               this.dispatchEvent(new CustomEvent('tool-change', { detail: e.detail, bubbles: true, composed: true }));
             }}
           ></fp-draw-toolbar>`
