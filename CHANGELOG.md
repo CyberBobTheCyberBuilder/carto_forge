@@ -4,6 +4,11 @@ All notable changes to CartoForge will be documented here.
 
 ---
 
+## [0.1.3] - 2026-03-14
+
+### Fixed
+- Frontend JS now copied to `<config>/www/carto_forge/` at startup instead of relying on StaticPathConfig, which was unreliable on HAOS
+
 ## [0.1.2] - 2026-03-14
 
 ### Fixed

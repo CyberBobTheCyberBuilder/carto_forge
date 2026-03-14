@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import logging
+import shutil
 from pathlib import Path
 
-from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
@@ -25,15 +25,16 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     await storage.async_load()
     hass.data[DOMAIN] = {"storage": storage}
 
-    await hass.http.async_register_static_paths(
-        [
-            StaticPathConfig(
-                url_path="/local/carto_forge",
-                path=str(FRONTEND_DIR),
-                cache_headers=False,
-            )
-        ]
-    )
+    # Copie les fichiers frontend dans <config>/www/carto_forge/
+    # (servi nativement par HA sous /local/carto_forge/)
+    dst_dir = Path(hass.config.path("www", "carto_forge"))
+    if FRONTEND_DIR.exists():
+        dst_dir.mkdir(parents=True, exist_ok=True)
+        for src_file in FRONTEND_DIR.iterdir():
+            shutil.copy2(src_file, dst_dir / src_file.name)
+        _LOGGER.debug("Frontend files copied to %s", dst_dir)
+    else:
+        _LOGGER.warning("CartoForge www/ directory not found at %s", FRONTEND_DIR)
 
     await async_register_views(hass)
 
