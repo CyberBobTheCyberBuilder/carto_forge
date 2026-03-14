@@ -10,7 +10,7 @@ export class FpMapSettingsDialog extends LitElement {
   @state() private _width = 0;
   @state() private _height = 0;
   @state() private _backgroundColor = '#1e1e2e';
-  @state() private _backgroundImage: string | undefined;
+  @state() private _backgroundImage: string | null = null;
   @state() private _copied = false;
 
   willUpdate(changed: Map<string, unknown>) {
@@ -19,7 +19,7 @@ export class FpMapSettingsDialog extends LitElement {
       this._width = this.map.width;
       this._height = this.map.height;
       this._backgroundColor = this.map.backgroundColor ?? '#1e1e2e';
-      this._backgroundImage = this.map.backgroundImage;
+      this._backgroundImage = this.map.backgroundImage ?? null;
     }
   }
 
@@ -255,7 +255,7 @@ export class FpMapSettingsDialog extends LitElement {
                   @change=${this._onImageFile} />
               </label>
               ${this._backgroundImage ? html`
-                <button class="btn-img-remove" @click=${() => { this._backgroundImage = undefined; }}>Supprimer</button>
+                <button class="btn-img-remove" @click=${() => { this._backgroundImage = null; }}>Supprimer</button>
               ` : ''}
             </div>
           </div>

@@ -46,7 +46,7 @@ export interface FloorMap {
   width: number;
   height: number;
   backgroundColor?: string;    // couleur de fond (défaut : '#1e1e2e')
-  backgroundImage?: string;    // data URL base64 (PNG/JPG/SVG)
+  backgroundImage?: string | null;  // data URL base64 (PNG/JPG/SVG)
   drawing: DrawingElement[];   // éléments dessinés à la main
   entities: PlacedEntity[];
 }
