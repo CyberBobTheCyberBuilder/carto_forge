@@ -4,6 +4,11 @@ All notable changes to CartoForge will be documented here.
 
 ---
 
+## [0.1.1] - 2026-03-14
+
+### Added
+- CartoForge icon (PNG + SVG)
+
 ## [0.1.0] - 2026-03-14
 
 ### Added
