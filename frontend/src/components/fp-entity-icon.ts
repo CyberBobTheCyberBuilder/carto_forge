@@ -62,7 +62,7 @@ export class FpEntityIcon extends LitElement {
     }
   };
 
-  private _onPointerUp = (e: PointerEvent): void => {
+  private _onPointerUp = (_e: PointerEvent): void => {
     if (this.viewMode === 'edit') {
       this._editUp();
     } else {

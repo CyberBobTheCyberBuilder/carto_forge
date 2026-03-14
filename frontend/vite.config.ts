@@ -2,6 +2,9 @@ import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import type { Plugin, ViteDevServer } from 'vite';
 
+// Référence des types Vitest pour la config test
+/// <reference types="vitest" />
+
 // ---------------------------------------------------------------------------
 // Mock API en mémoire — simule l'intégration Python pendant le dev
 // ---------------------------------------------------------------------------
@@ -99,5 +102,10 @@ export default defineConfig({
 
   server: {
     port: 5173,
+  },
+
+  test: {
+    environment: 'node',
+    include: ['src/__tests__/**/*.test.ts'],
   },
 });

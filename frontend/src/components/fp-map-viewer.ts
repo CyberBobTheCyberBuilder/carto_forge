@@ -10,35 +10,13 @@ import type {
 } from '../types/floorplan';
 import type { Hass } from '../utils/ha-api';
 import { toggleEntity } from '../utils/ha-api';
+import { snap, moveElement, elementIntersectsRect } from '../utils/drawing';
 
 const FO_HALF = 28;
-const SNAP = 10;
-const snap = (v: number) => Math.round(v / SNAP) * SNAP;
 const ZOOM_MIN = 0.2;
 const ZOOM_MAX = 8;
 // Minimum movement (SVG units) before a press becomes a drag
 const DRAG_THRESHOLD = 8;
-
-// ---------------------------------------------------------------------------
-// Helpers purs — déplacement et intersection d'éléments
-// ---------------------------------------------------------------------------
-function moveElement(el: DrawingElement, dx: number, dy: number): DrawingElement {
-  if (el.type === 'wall' || el.type === 'polygon') {
-    return { ...el, points: el.points.map((p) => ({ x: p.x + dx, y: p.y + dy })) };
-  }
-  return { ...el, x: el.x + dx, y: el.y + dy };
-}
-
-function elementIntersectsRect(
-  el: DrawingElement,
-  rb: { x: number; y: number; w: number; h: number }
-): boolean {
-  const r = rb.x + rb.w, b = rb.y + rb.h;
-  if (el.type === 'room') {
-    return el.x < r && el.x + el.width > rb.x && el.y < b && el.y + el.height > rb.y;
-  }
-  return el.points.some((p) => p.x >= rb.x && p.x <= r && p.y >= rb.y && p.y <= b);
-}
 
 @customElement('fp-map-viewer')
 export class FpMapViewer extends LitElement {
@@ -265,7 +243,7 @@ export class FpMapViewer extends LitElement {
 
     if (e.shiftKey) {
       const next = new Set(this._selectedIds);
-      next.has(el.id) ? next.delete(el.id) : next.add(el.id);
+      if (next.has(el.id)) { next.delete(el.id); } else { next.add(el.id); }
       this._selectedIds = next;
     } else if (!this._selectedIds.has(el.id)) {
       this._selectedIds = new Set([el.id]);

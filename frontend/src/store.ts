@@ -20,7 +20,7 @@ const initialState: AppState = {
   error: null,
 };
 
-class AppStore {
+export class AppStore {
   private state: AppState = { ...initialState };
   private listeners: Set<Listener> = new Set();
 
