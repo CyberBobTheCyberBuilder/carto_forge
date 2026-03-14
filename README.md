@@ -1,38 +1,25 @@
 # CartoForge
 
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
+
 Copyright (C) 2026 Bob — Licensed under the [GNU AGPL-3.0](LICENSE)
 
 A Home Assistant custom component to create and manage interactive floor plans — rooms, walls, zones — with entity placement and real-time control.
 
 ---
 
-## Features
-
-- Draw floor plans with walls, rooms, and polygons
-- Place and control Home Assistant entities on the map
-- Multi-floor support via tabs in the Lovelace card
-- Zoom, pan, and touch support (pinch-to-zoom)
-- Per-map background color
-- Live Docker development workflow
-
----
-
 ## Installation
 
-### Requirements
+### Via HACS (recommended)
 
-- Home Assistant (Docker or supervised)
-- Node.js 18+
+1. Open HACS in Home Assistant
+2. Click **⋮ → Custom repositories**
+3. Add `https://github.com/CyberBobTheCyberBuilder/carto_forge` — category **Integration**
+4. Search for **CartoForge** and click **Download**
+5. Restart Home Assistant
 
-### Setup
-
-```bash
-cd frontend
-npm install
-npm run build
-```
-
-Add to `configuration.yaml`:
+Then add to `configuration.yaml`:
 
 ```yaml
 carto_forge:
@@ -45,22 +32,32 @@ panel_custom:
     module_url: /local/carto_forge/carto-forge-panel.js
 ```
 
-### Lovelace Resource
-
-In HA → **Settings** → **Dashboards** → **Resources** → Add:
+And add the Lovelace resource in **Settings → Dashboards → Resources**:
 
 | URL | Type |
 |-----|------|
 | `/local/carto_forge/carto-forge-panel.js` | JavaScript Module |
 
-### Docker (live reload)
+### Manual
 
 ```bash
-docker compose -f ~/ha-dev/docker-compose.yml up -d
-cd frontend && npm run watch
+git clone https://github.com/CyberBobTheCyberBuilder/carto_forge
+cd carto_forge/frontend && npm install && npm run build
+cp -r custom_components/carto_forge <your_ha_config>/custom_components/
 ```
 
-After Python changes: restart the container. After frontend changes: hard-refresh the browser (Ctrl+F5).
+Then follow the `configuration.yaml` and Lovelace steps above.
+
+---
+
+## Features
+
+- Draw floor plans with walls, rooms, and polygons
+- Place and control Home Assistant entities on the map
+- Multi-floor support via tabs in the Lovelace card
+- Zoom, pan, and touch support (pinch-to-zoom)
+- Per-map background color
+- Live Docker development workflow
 
 ---
 
@@ -129,10 +126,12 @@ height: 500
 ## Development
 
 ```bash
+cd frontend
 npm run dev      # local dev server with mock API → http://localhost:5173
 npm run build    # production build → custom_components/carto_forge/www/
-npm run watch    # watch mode (used by dev.sh)
 ```
+
+After Python changes: restart HA. After frontend changes: hard-refresh (Ctrl+F5).
 
 ---
 
@@ -141,4 +140,4 @@ npm run watch    # watch mode (used by dev.sh)
 - [ ] Entity z-index reordering
 - [ ] Two-finger pan on mobile
 - [ ] Internationalization (i18n)
-- [ ] HACS publication
+- [ ] Submit to HACS default repository

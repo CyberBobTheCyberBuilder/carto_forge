@@ -2,8 +2,9 @@
   "domain": "carto_forge",
   "name": "CartoForge",
   "version": "0.1.0",
-  "codeowners": [],
-  "documentation": "https://github.com/user/carto-forge",
+  "codeowners": ["@CyberBobTheCyberBuilder"],
+  "documentation": "https://github.com/CyberBobTheCyberBuilder/carto_forge",
+  "issue_tracker": "https://github.com/CyberBobTheCyberBuilder/carto_forge/issues",
   "integration_type": "service",
   "iot_class": "local_push",
   "requirements": []

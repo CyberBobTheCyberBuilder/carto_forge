@@ -1,0 +1,7 @@
+{
+  "name": "CartoForge",
+  "render_readme": true,
+  "zip_release": true,
+  "filename": "carto_forge.zip",
+  "homeassistant": "2026.3.0"
+}
