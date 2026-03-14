@@ -4,6 +4,18 @@ All notable changes to CartoForge will be documented here.
 
 ---
 
+## [0.1.4] - 2026-03-15
+
+### Added
+- Undo/Redo (Ctrl+Z / Ctrl+Y) with up to 50 steps per map; toolbar buttons
+- Background image per map (PNG/JPG/SVG upload, stored as base64)
+- Resize handles for rooms: 8 handles (corners + edges) when a single rectangle is selected
+
+### Fixed
+- Native browser drag interfering with canvas drag (user-select: none + dragstart prevention)
+- Background image deletion not persisted after page reload (null vs undefined in JSON)
+- HACS icon: renamed to logo.png
+
 ## [0.1.3] - 2026-03-14
 
 ### Fixed
