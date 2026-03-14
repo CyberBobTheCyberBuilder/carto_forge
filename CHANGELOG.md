@@ -4,6 +4,11 @@ All notable changes to CartoForge will be documented here.
 
 ---
 
+## [0.1.2] - 2026-03-14
+
+### Fixed
+- HACS zip structure: files now at zip root so HACS extracts them correctly into custom_components/carto_forge/
+
 ## [0.1.1] - 2026-03-14
 
 ### Added

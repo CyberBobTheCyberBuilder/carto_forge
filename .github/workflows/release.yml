@@ -32,8 +32,8 @@ jobs:
 
       - name: Create release zip
         run: |
-          cd custom_components
-          zip -r ../carto_forge.zip carto_forge/
+          cd custom_components/carto_forge
+          zip -r ../../carto_forge.zip .
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
