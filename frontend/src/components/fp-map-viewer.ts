@@ -2,7 +2,7 @@ import { LitElement, html, css, svg, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import './fp-entity-icon';
 import './fp-entity-config-dialog';
-import './fp-map-editor';
+import './fp-add-entity-dialog';
 import './fp-draw-toolbar';
 import type {
   FloorMap, PlacedEntity, ViewMode, DrawTool,
@@ -30,19 +30,21 @@ export class FpMapViewer extends LitElement {
 
   // ---- Sélection & déplacement d'éléments dessinés ----
   @state() private _selectedIds = new Set<string>();
+  @state() private _selectedEntityIds = new Set<string>();
   @state() private _dragOffset: { dx: number; dy: number } | null = null;
   @state() private _rubberBand: { x: number; y: number; w: number; h: number } | null = null;
+  // Origines de départ pour le drag groupé d'entités
+  private _groupDragOrigins = new Map<string, { x: number; y: number }>();
   // Non-@state : ne déclenche pas de re-render pendant le geste
   private _elemDragStart: { x: number; y: number } | null = null;
   private _elemDragStarted = false;
   private _rubberBandStart: { x: number; y: number } | null = null;
 
-  // ---- Drag entités (DOM direct) ----
-  private _dragId: string | null = null;
-  private _dragFO: SVGForeignObjectElement | null = null;
-  private _dragOriginSvg: { x: number; y: number } | null = null;
-  private _dragOriginPlacement: { x: number; y: number } | null = null;
-  private _rafId: number | null = null;
+  // ---- Drag entités ----
+  // Offset visuel pendant le drag, partagé entre drag d'entités et drag d'éléments dessinés
+  @state() private _entityDragOffset: { dx: number; dy: number } | null = null;
+  // Coords SVG du point de départ du drag entité courant
+  private _entityDragOriginSvg: { x: number; y: number } | null = null;
 
   // ---- Pan / pinch ----
   private _panStart: { clientX: number; clientY: number } | null = null;
@@ -75,7 +77,6 @@ export class FpMapViewer extends LitElement {
     svg.tool-select { cursor: default; }
     svg.tool-wall, svg.tool-room { cursor: crosshair; }
     svg.tool-eraser { cursor: cell; }
-    fp-map-editor { flex-shrink: 0; }
   `;
 
   // -------------------------------------------------------------------------
@@ -177,6 +178,8 @@ export class FpMapViewer extends LitElement {
         this._elemDragStarted = true;
       }
       this._dragOffset = { dx, dy };
+      // Si des entités sont sélectionnées, les faire suivre visuellement
+      if (this._groupDragOrigins.size > 0) this._entityDragOffset = { dx, dy };
       return;
     }
 
@@ -211,26 +214,40 @@ export class FpMapViewer extends LitElement {
         const drawing = this.map.drawing.map((el) =>
           this._selectedIds.has(el.id) ? moveElement(el, dx, dy) : el
         );
-        this._emitMapUpdate({ ...this.map, drawing });
+        // Commit aussi les entités sélectionnées
+        const entities = this._groupDragOrigins.size > 0
+          ? this.map.entities.map((en) => {
+              const origin = this._groupDragOrigins.get(en.placementId);
+              return origin ? { ...en, x: snap(origin.x + dx), y: snap(origin.y + dy) } : en;
+            })
+          : this.map.entities;
+        this._emitMapUpdate({ ...this.map, drawing, entities });
       }
       this._elemDragStart = null;
       this._elemDragStarted = false;
       this._dragOffset = null;
+      this._entityDragOffset = null;
+      this._groupDragOrigins.clear();
       this._rubberBandStart = null;
       this._rubberBand = null;
       return;
     }
 
-    // Fin rubber-band → sélectionne les éléments dans le rect
+    // Fin rubber-band → sélectionne les éléments et entités dans le rect
     if (this._rubberBandStart) {
       if (this._rubberBand && (this._rubberBand.w > 4 || this._rubberBand.h > 4)) {
         const rb = this._rubberBand;
         this._selectedIds = new Set(
           this.map?.drawing.filter((el) => elementIntersectsRect(el, rb)).map((el) => el.id) ?? []
         );
+        this._selectedEntityIds = new Set(
+          this.map?.entities
+            .filter((en) => en.x >= rb.x && en.x <= rb.x + rb.w && en.y >= rb.y && en.y <= rb.y + rb.h)
+            .map((en) => en.placementId) ?? []
+        );
       } else {
-        // Simple clic sur fond → désélectionne tout
         this._selectedIds = new Set();
+        this._selectedEntityIds = new Set();
       }
       this._rubberBand = null;
       this._rubberBandStart = null;
@@ -241,7 +258,7 @@ export class FpMapViewer extends LitElement {
   // Éléments dessinés — sélection + drag
   // -------------------------------------------------------------------------
   private _onElementPointerDown(e: PointerEvent, el: DrawingElement): void {
-    if (this.drawTool !== 'select') return;
+    if (this.viewMode !== 'edit' || this.drawTool !== 'select') return;
     e.stopPropagation(); // empêche le rubber-band de démarrer
 
     if (e.shiftKey) {
@@ -258,6 +275,13 @@ export class FpMapViewer extends LitElement {
 
     this._elemDragStart = this._toSvg(e);
     this._elemDragStarted = false;
+
+    // Prépare le drag groupé des entités sélectionnées
+    this._groupDragOrigins.clear();
+    for (const pid of this._selectedEntityIds) {
+      const en = this.map?.entities.find((en) => en.placementId === pid);
+      if (en) this._groupDragOrigins.set(pid, { x: en.x, y: en.y });
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -295,63 +319,100 @@ export class FpMapViewer extends LitElement {
     const { placementId, clientX, clientY } = e.detail;
     const placement = this.map?.entities.find((en) => en.placementId === placementId);
     if (!placement) return;
-    this._dragId = placementId;
-    this._dragOriginSvg = this._toSvg({ clientX, clientY });
-    this._dragOriginPlacement = { x: placement.x, y: placement.y };
-    this._dragFO = this.shadowRoot?.querySelector(
-      `foreignObject[data-pid="${placementId}"]`
-    ) as SVGForeignObjectElement | null;
+
+    this._entityDragOriginSvg = this._toSvg({ clientX, clientY });
+
+    // Toutes les entités à déplacer (entité cliquée + groupe sélectionné)
+    this._groupDragOrigins.clear();
+    this._groupDragOrigins.set(placementId, { x: placement.x, y: placement.y });
+    if (this._selectedEntityIds.has(placementId) && this._selectedEntityIds.size > 1) {
+      for (const pid of this._selectedEntityIds) {
+        if (pid === placementId) continue;
+        const en = this.map?.entities.find((en) => en.placementId === pid);
+        if (en) this._groupDragOrigins.set(pid, { x: en.x, y: en.y });
+      }
+    }
+
+    // Si des éléments dessinés sont aussi sélectionnés, les faire suivre
+    if (this._selectedIds.size > 0) {
+      this._elemDragStart = this._entityDragOriginSvg;
+      this._elemDragStarted = true;
+    }
   };
 
   private _onDragMove = (e: CustomEvent): void => {
-    if (!this._dragFO || !this._dragOriginSvg || !this._dragOriginPlacement) return;
+    if (!this._entityDragOriginSvg) return;
     const cur = this._toSvg(e.detail);
-    const x = this._dragOriginPlacement.x + cur.x - this._dragOriginSvg.x;
-    const y = this._dragOriginPlacement.y + cur.y - this._dragOriginSvg.y;
-    // rAF throttle: never queue more than one frame
-    if (this._rafId !== null) cancelAnimationFrame(this._rafId);
-    this._rafId = requestAnimationFrame(() => {
-      this._rafId = null;
-      this._dragFO?.setAttribute('x', String(x - FO_HALF));
-      this._dragFO?.setAttribute('y', String(y - FO_HALF));
-    });
+    const dx = cur.x - this._entityDragOriginSvg.x;
+    const dy = cur.y - this._entityDragOriginSvg.y;
+    this._entityDragOffset = { dx, dy };
+    // Faire suivre visuellement les éléments dessinés sélectionnés
+    if (this._elemDragStart) this._dragOffset = { dx, dy };
   };
 
   private _onDragEnd = (e: CustomEvent): void => {
-    if (this._rafId !== null) { cancelAnimationFrame(this._rafId); this._rafId = null; }
-    if (!this.map || !this._dragId || !this._dragOriginSvg || !this._dragOriginPlacement) return;
+    if (!this.map || !this._entityDragOriginSvg) return;
     const cur = this._toSvg(e.detail);
-    const x = snap(this._dragOriginPlacement.x + cur.x - this._dragOriginSvg.x);
-    const y = snap(this._dragOriginPlacement.y + cur.y - this._dragOriginSvg.y);
-    const entities = this.map.entities.map((en) =>
-      en.placementId === this._dragId ? { ...en, x, y } : en
-    );
-    this._emitMapUpdate({ ...this.map, entities });
-    this._dragId = null;
-    this._dragFO = null;
-    this._dragOriginSvg = null;
-    this._dragOriginPlacement = null;
+    const dx = snap(cur.x - this._entityDragOriginSvg.x);
+    const dy = snap(cur.y - this._entityDragOriginSvg.y);
+
+    // Commit entités
+    const entities = this.map.entities.map((en) => {
+      const origin = this._groupDragOrigins.get(en.placementId);
+      return origin ? { ...en, x: snap(origin.x + dx), y: snap(origin.y + dy) } : en;
+    });
+
+    // Commit éléments dessinés sélectionnés
+    const drawing = this._elemDragStarted && this._selectedIds.size > 0
+      ? this.map.drawing.map((el) => this._selectedIds.has(el.id) ? moveElement(el, dx, dy) : el)
+      : this.map.drawing;
+
+    this._emitMapUpdate({ ...this.map, entities, drawing });
+    this._entityDragOriginSvg = null;
+    this._entityDragOffset = null;
+    this._groupDragOrigins.clear();
+    this._elemDragStart = null;
+    this._elemDragStarted = false;
+    this._dragOffset = null;
   };
 
   // -------------------------------------------------------------------------
   // Ajout d'entité
   // -------------------------------------------------------------------------
-  private _onAddEntity = (e: CustomEvent): void => {
+  private readonly _DOMAIN_ICONS: Record<string, string> = {
+    light: 'mdi:ceiling-light', switch: 'mdi:power-socket',
+    sensor: 'mdi:thermometer', binary_sensor: 'mdi:motion-sensor',
+    media_player: 'mdi:television', climate: 'mdi:thermostat',
+    cover: 'mdi:window-shutter',
+  };
+
+  private _placeEntity(entityId: string, x: number, y: number): void {
     if (!this.map) return;
-    const icons: Record<string, string> = {
-      light: 'mdi:ceiling-light', switch: 'mdi:power-socket',
-      sensor: 'mdi:thermometer', binary_sensor: 'mdi:motion-sensor',
-      media_player: 'mdi:television', climate: 'mdi:thermostat',
-      cover: 'mdi:window-shutter',
-    };
     const newEntity: PlacedEntity = {
       placementId: crypto.randomUUID(),
-      entityId: e.detail.entityId,
-      x: e.detail.x, y: e.detail.y,
-      icon: icons[e.detail.entityId.split('.')[0]] ?? 'mdi:help-circle',
+      entityId,
+      x, y,
+      icon: this._DOMAIN_ICONS[entityId.split('.')[0]] ?? 'mdi:help-circle',
     };
     this._emitMapUpdate({ ...this.map, entities: [...this.map.entities, newEntity] });
+  }
+
+  // Appelé depuis la modale (outil 'entity')
+  private _onDialogAddEntity = (e: CustomEvent): void => {
+    if (!this.map) return;
+    const cx = snap(this._panX + this.map.width / (2 * this._zoom));
+    const cy = snap(this._panY + this.map.height / (2 * this._zoom));
+    this._placeEntity(e.detail.entityId, cx, cy);
+    this._dispatchToolChange('select');
   };
+
+  private _onDialogCancel = (): void => {
+    this._dispatchToolChange('select');
+  };
+
+  private _dispatchToolChange(tool: DrawTool): void {
+    this.dispatchEvent(new CustomEvent('tool-change', { detail: tool, bubbles: true, composed: true }));
+  }
 
   // -------------------------------------------------------------------------
   // Dessin
@@ -443,7 +504,8 @@ export class FpMapViewer extends LitElement {
     this._preview = null;
     this._roomDraft = null;
     this._roomStart = null;
-    this._selectedIds = new Set(); // Escape désélectionne aussi
+    this._selectedIds = new Set();
+    this._selectedEntityIds = new Set();
   };
 
   private _eraseElement(id: string): void {
@@ -548,13 +610,14 @@ export class FpMapViewer extends LitElement {
     const { backgroundColor, width, height, drawing, entities } = this.map;
     const isDrawing = this.viewMode === 'edit' && (this.drawTool === 'wall' || this.drawTool === 'room');
     const viewBox = `${this._panX} ${this._panY} ${width / this._zoom} ${height / this._zoom}`;
-    const selCount = this._selectedIds.size;
+    const selCount = this._selectedIds.size + this._selectedEntityIds.size;
 
     return html`
       ${this.viewMode === 'edit'
         ? html`<fp-draw-toolbar .activeTool=${this.drawTool}
             @tool-change=${(e: CustomEvent<DrawTool>) => {
               this._selectedIds = new Set();
+              this._selectedEntityIds = new Set();
               this.dispatchEvent(new CustomEvent('tool-change', { detail: e.detail, bubbles: true, composed: true }));
             }}
           ></fp-draw-toolbar>`
@@ -625,21 +688,33 @@ export class FpMapViewer extends LitElement {
           ` : nothing}
 
           <!-- Entités -->
-          ${entities.map((placed: PlacedEntity) => svg`
-            <foreignObject
-              data-pid="${placed.placementId}"
-              x="${placed.x - FO_HALF}" y="${placed.y - FO_HALF}"
-              width="${FO_HALF * 2}" height="${FO_HALF * 2}"
-              overflow="visible"
-            >
-              <fp-entity-icon
-                xmlns="http://www.w3.org/1999/xhtml"
-                .placement=${placed}
-                .entityState=${this.hass?.states[placed.entityId]}
-                .viewMode=${this.viewMode}
-              ></fp-entity-icon>
-            </foreignObject>
-          `)}
+          ${entities.map((placed: PlacedEntity) => {
+            const isEntitySelected = this._selectedEntityIds.has(placed.placementId);
+            const isDragging = this._groupDragOrigins.has(placed.placementId) && this._entityDragOffset !== null;
+            const vx = placed.x + (isDragging ? this._entityDragOffset!.dx : 0);
+            const vy = placed.y + (isDragging ? this._entityDragOffset!.dy : 0);
+            return svg`
+              ${isEntitySelected ? svg`
+                <circle cx="${vx}" cy="${vy}" r="${FO_HALF - 2}"
+                  fill="none" stroke="#03a9f4" stroke-width="2"
+                  stroke-dasharray="6 3" style="pointer-events:none"/>
+              ` : nothing}
+              <foreignObject
+                data-pid="${placed.placementId}"
+                x="${vx - FO_HALF}" y="${vy - FO_HALF}"
+                width="${FO_HALF * 2}" height="${FO_HALF * 2}"
+                overflow="visible"
+              >
+                <fp-entity-icon
+                  xmlns="http://www.w3.org/1999/xhtml"
+                  .placement=${placed}
+                  .entityState=${this.hass?.states[placed.entityId]}
+                  .viewMode=${this.viewMode}
+                  .drawTool=${this.drawTool}
+                ></fp-entity-icon>
+              </foreignObject>
+            `;
+          })}
 
           <!-- Zone de capture dessin (wall/room uniquement) -->
           ${isDrawing ? svg`
@@ -671,10 +746,13 @@ export class FpMapViewer extends LitElement {
         ></fp-entity-config-dialog>
       ` : nothing}
 
-      ${this.viewMode === 'edit' && this.drawTool === 'select' && this.hass
-        ? html`<fp-map-editor .map=${this.map} .hass=${this.hass}
-            @add-entity=${this._onAddEntity}></fp-map-editor>`
-        : nothing}
+      ${this.viewMode === 'edit' && this.drawTool === 'entity' && this.hass ? html`
+        <fp-add-entity-dialog
+          .hass=${this.hass}
+          @add-entity=${this._onDialogAddEntity}
+          @cancel=${this._onDialogCancel}
+        ></fp-add-entity-dialog>
+      ` : nothing}
     `;
   }
 }

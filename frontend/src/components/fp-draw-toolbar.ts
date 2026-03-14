@@ -5,6 +5,7 @@ import {
   mdiVectorLine,
   mdiVectorSquare,
   mdiEraser,
+  mdiMapMarkerPlus,
 } from '@mdi/js';
 import type { DrawTool } from '../types/floorplan';
 
@@ -44,6 +45,13 @@ const TOOLS: Tool[] = [
     label: 'Gomme',
     shortcut: 'E',
     hint: 'Cliquer sur un élément pour le supprimer',
+  },
+  {
+    id: 'entity',
+    path: mdiMapMarkerPlus,
+    label: 'Entité',
+    shortcut: 'P',
+    hint: 'Placer une entité Home Assistant',
   },
 ];
 
@@ -153,8 +161,9 @@ export class FpDrawToolbar extends LitElement {
   `;
 
   private _keyHandler = (e: KeyboardEvent) => {
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-    const map: Record<string, DrawTool> = { v: 'select', w: 'wall', r: 'room', e: 'eraser' };
+    const map: Record<string, DrawTool> = { v: 'select', w: 'wall', r: 'room', e: 'eraser', p: 'entity' };
     const tool = map[e.key.toLowerCase()];
     if (tool) {
       e.preventDefault();
@@ -180,7 +189,7 @@ export class FpDrawToolbar extends LitElement {
   render() {
     return html`
       ${TOOLS.map((t, i) => html`
-        ${i === 3 ? html`<div class="separator"></div>` : ''}
+        ${i === 3 || i === 4 ? html`<div class="separator"></div>` : ''}
         <button
           class=${t.id === this.activeTool ? 'active' : ''}
           data-hint=${t.hint}

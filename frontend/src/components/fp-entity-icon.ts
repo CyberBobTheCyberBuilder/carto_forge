@@ -1,6 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { PlacedEntity, ViewMode } from '../types/floorplan';
+import type { PlacedEntity, ViewMode, DrawTool } from '../types/floorplan';
 
 // Long-press threshold before the options panel opens
 const LONG_PRESS_MS = 600;
@@ -12,6 +12,7 @@ export class FpEntityIcon extends LitElement {
   @property({ attribute: false }) placement!: PlacedEntity;
   @property({ attribute: false }) entityState?: { state: string; attributes: Record<string, unknown> };
   @property() viewMode: ViewMode = 'view';
+  @property() drawTool: DrawTool = 'select';
 
   private _pressTimer: ReturnType<typeof setTimeout> | null = null;
   // Prevents a click from firing after a long-press has already triggered (view mode)
@@ -49,6 +50,7 @@ export class FpEntityIcon extends LitElement {
 
   updated(): void {
     if (this.entityState) this.dataset['state'] = this.entityState.state;
+    this.style.cursor = this.drawTool === 'eraser' ? 'cell' : 'pointer';
   }
 
   // -------------------------------------------------------------------------
@@ -101,6 +103,10 @@ export class FpEntityIcon extends LitElement {
   // Mode édition : distingue drag (mouvement > seuil) de long press (immobile)
   // -------------------------------------------------------------------------
   private _editDown(e: PointerEvent): void {
+    if (this.drawTool === 'eraser') {
+      this._emit('entity-remove');
+      return;
+    }
     this._pressStart = { x: e.clientX, y: e.clientY, pointerId: e.pointerId };
     this._pressTimer = setTimeout(() => {
       this._pressTimer = null;

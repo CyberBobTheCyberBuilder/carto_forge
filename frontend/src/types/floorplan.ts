@@ -1,5 +1,5 @@
 export type ViewMode = 'view' | 'edit';
-export type DrawTool = 'select' | 'wall' | 'room' | 'eraser';
+export type DrawTool = 'select' | 'wall' | 'room' | 'eraser' | 'entity';
 
 // ---------------------------------------------------------------------------
 // Éléments dessinés sur la carte
