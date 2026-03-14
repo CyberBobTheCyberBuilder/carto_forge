@@ -50,6 +50,15 @@ export class FpMapViewer extends LitElement {
   private _elemLongPressTimer: ReturnType<typeof setTimeout> | null = null;
   private _rubberBandStart: { x: number; y: number } | null = null;
 
+  // ---- Resize poignées (rectangles uniquement) ----
+  private _resizeHandle: {
+    handle: string;
+    origRect: { x: number; y: number; w: number; h: number };
+    startSvg: { x: number; y: number };
+  } | null = null;
+  private _resizeElementId: string | null = null;
+  @state() private _resizeDraft: { x: number; y: number; w: number; h: number } | null = null;
+
   // ---- Drag entités ----
   // Offset visuel pendant le drag, partagé entre drag d'entités et drag d'éléments dessinés
   @state() private _entityDragOffset: { dx: number; dy: number } | null = null;
@@ -87,7 +96,7 @@ export class FpMapViewer extends LitElement {
   private _roomStart: { x: number; y: number } | null = null;
 
   static styles = css`
-    :host { display: flex; flex-direction: column; width: 100%; height: 100%; overflow: hidden; position: relative; }
+    :host { display: flex; flex-direction: column; width: 100%; height: 100%; overflow: hidden; position: relative; user-select: none; }
     .svg-wrapper { flex: 1; overflow: hidden; touch-action: none; }
     fp-draw-toolbar { position: absolute; left: 14px; top: 14px; z-index: 20; }
     svg { width: 100%; height: 100%; display: block; cursor: grab; }
@@ -185,6 +194,12 @@ export class FpMapViewer extends LitElement {
       return;
     }
 
+    // Resize poignée
+    if (this._resizeHandle) {
+      this._resizeDraft = this._computeResize(this._toSvg(e));
+      return;
+    }
+
     // Drag d'éléments sélectionnés
     if (this._elemDragStart) {
       const cur = this._toSvg(e);
@@ -226,6 +241,23 @@ export class FpMapViewer extends LitElement {
     this._activePointers.delete(e.pointerId);
     if (this._activePointers.size < 2) this._pinchCenterSvg = null;
     if (this._activePointers.size === 0) this._panStart = null;
+
+    // Commit resize
+    if (this._resizeHandle) {
+      if (this._resizeDraft && this.map && this._resizeElementId) {
+        const { x, y, w, h } = this._resizeDraft;
+        const drawing = this.map.drawing.map((d) =>
+          d.id === this._resizeElementId && d.type === 'room'
+            ? { ...d, x: snap(x), y: snap(y), width: snap(w), height: snap(h) }
+            : d
+        );
+        this._emitMapUpdate({ ...this.map, drawing });
+      }
+      this._resizeHandle = null;
+      this._resizeDraft = null;
+      this._resizeElementId = null;
+      return;
+    }
 
     // Commit drag d'éléments
     if (this._elemDragStart) {
@@ -583,6 +615,9 @@ export class FpMapViewer extends LitElement {
       this._roomStart = null;
       this._selectedIds = new Set();
       this._selectedEntityIds = new Set();
+      this._resizeHandle = null;
+      this._resizeDraft = null;
+      this._resizeElementId = null;
       return;
     }
     if (e.ctrlKey || e.metaKey) {
@@ -658,6 +693,60 @@ export class FpMapViewer extends LitElement {
   }
 
   // -------------------------------------------------------------------------
+  // Resize poignées
+  // -------------------------------------------------------------------------
+  private _computeResize(cur: { x: number; y: number }): { x: number; y: number; w: number; h: number } {
+    const { handle, origRect, startSvg } = this._resizeHandle!;
+    const dx = cur.x - startSvg.x;
+    const dy = cur.y - startSvg.y;
+    const MIN = 20;
+    let { x, y, w, h } = origRect;
+    if (handle.includes('e')) { w = Math.max(MIN, w + dx); }
+    if (handle.includes('w')) { const nw = Math.max(MIN, w - dx); x = x + w - nw; w = nw; }
+    if (handle.includes('s')) { h = Math.max(MIN, h + dy); }
+    if (handle.includes('n')) { const nh = Math.max(MIN, h - dy); y = y + h - nh; h = nh; }
+    return { x, y, w, h };
+  }
+
+  private _onHandlePointerDown(e: PointerEvent, el: RoomElement, handle: string): void {
+    e.stopPropagation();
+    this._resizeHandle = {
+      handle,
+      origRect: { x: el.x, y: el.y, w: el.width, h: el.height },
+      startSvg: this._toSvg(e),
+    };
+    this._resizeElementId = el.id;
+    this._resizeDraft = { x: el.x, y: el.y, w: el.width, h: el.height };
+    const wrapper = this.shadowRoot!.querySelector('.svg-wrapper') as HTMLElement;
+    wrapper?.setPointerCapture(e.pointerId);
+  }
+
+  private _renderResizeHandles(el: RoomElement, x: number, y: number, w: number, h: number) {
+    const CURSORS: Record<string, string> = {
+      nw: 'nw-resize', n: 'n-resize', ne: 'ne-resize',
+      e: 'e-resize', se: 'se-resize', s: 's-resize',
+      sw: 'sw-resize', w: 'w-resize',
+    };
+    const pts = [
+      { id: 'nw', cx: x,       cy: y       },
+      { id: 'n',  cx: x + w/2, cy: y       },
+      { id: 'ne', cx: x + w,   cy: y       },
+      { id: 'e',  cx: x + w,   cy: y + h/2 },
+      { id: 'se', cx: x + w,   cy: y + h   },
+      { id: 's',  cx: x + w/2, cy: y + h   },
+      { id: 'sw', cx: x,       cy: y + h   },
+      { id: 'w',  cx: x,       cy: y + h/2 },
+    ];
+    return pts.map(({ id, cx, cy }) => svg`
+      <rect
+        x="${cx - 5}" y="${cy - 5}" width="10" height="10"
+        fill="white" stroke="#03a9f4" stroke-width="1.5" rx="2"
+        style="cursor:${CURSORS[id]};pointer-events:all"
+        @pointerdown=${(e: PointerEvent) => this._onHandlePointerDown(e, el, id)}
+      />`);
+  }
+
+  // -------------------------------------------------------------------------
   // Rendu des éléments dessinés
   // -------------------------------------------------------------------------
   private _renderDrawing(elements: DrawingElement[]) {
@@ -688,21 +777,31 @@ export class FpMapViewer extends LitElement {
             ` : nothing}
           </g>`;
       } else if (el.type === 'room') {
+        const draft = (this._resizeElementId === el.id && this._resizeDraft) ? this._resizeDraft : null;
+        const rx = draft ? draft.x : el.x;
+        const ry = draft ? draft.y : el.y;
+        const rw = draft ? draft.w : el.width;
+        const rh = draft ? draft.h : el.height;
+        // Pas de transform de drag pendant le resize
+        const roomTransform = draft ? '' : transform;
+        const isOnlySelected = isSelected && this._selectedIds.size === 1
+          && this._selectedEntityIds.size === 0 && this.drawTool === 'select';
         return svg`
-          <g transform="${transform}" style="${eraserStyle}"
+          <g transform="${roomTransform}" style="${eraserStyle}"
             @pointerdown=${selectPointerDown}
             @click=${() => this._eraseElement(el.id)}
             @dblclick=${(e: Event) => this._editElementLabel(e, el.id, el.label)}
           >
-            <rect x="${el.x}" y="${el.y}" width="${el.width}" height="${el.height}"
+            <rect x="${rx}" y="${ry}" width="${rw}" height="${rh}"
               fill="${el.fill ?? 'rgba(255,255,255,0.05)'}"
               stroke="${isSelected ? '#03a9f4' : (el.stroke ?? '#aaaaaa')}"
-              stroke-width="${isSelected ? 2 : 2}"
+              stroke-width="2"
               stroke-dasharray="${isSelected ? '6 3' : 'none'}"/>
             ${el.label ? svg`
-              <text x="${el.x + el.width / 2}" y="${el.y + el.height / 2}"
+              <text x="${rx + rw / 2}" y="${ry + rh / 2}"
                 text-anchor="middle" dominant-baseline="middle"
                 fill="#888" font-size="16">${el.label}</text>` : nothing}
+            ${isOnlySelected ? this._renderResizeHandles(el, rx, ry, rw, rh) : nothing}
           </g>`;
       } else {
         // Centroid = average of vertices
@@ -769,6 +868,7 @@ export class FpMapViewer extends LitElement {
         @pointermove=${this._onWrapperPointerMove}
         @pointerup=${this._onWrapperPointerUp}
         @pointercancel=${this._onWrapperPointerUp}
+        @dragstart=${(e: DragEvent) => e.preventDefault()}
       >
         <svg class="tool-${this.drawTool}"
           viewBox="${viewBox}" preserveAspectRatio="xMidYMid meet">
