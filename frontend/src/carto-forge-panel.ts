@@ -141,11 +141,11 @@ export class CartoForgePanel extends LitElement {
     }
   }
 
-  private async _saveMapSettings(e: CustomEvent<{ mapId: string; name: string; width: number; height: number; backgroundColor: string }>): Promise<void> {
-    const { mapId, name, width, height, backgroundColor } = e.detail;
+  private async _saveMapSettings(e: CustomEvent<{ mapId: string; name: string; width: number; height: number; backgroundColor: string; backgroundImage?: string }>): Promise<void> {
+    const { mapId, name, width, height, backgroundColor, backgroundImage } = e.detail;
     const map = this._app.maps.find((m) => m.id === mapId);
     if (!map) return;
-    const updated = { ...map, name, width, height, backgroundColor };
+    const updated = { ...map, name, width, height, backgroundColor, backgroundImage };
     store.updateMap(updated);
     try {
       await fetchApi(this.hass, `/carto_forge/maps/${mapId}`, {

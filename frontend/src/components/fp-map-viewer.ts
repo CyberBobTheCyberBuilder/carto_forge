@@ -776,6 +776,13 @@ export class FpMapViewer extends LitElement {
           <rect x="0" y="0" width="${width}" height="${height}"
             fill="${backgroundColor ?? '#1e1e2e'}"/>
 
+          ${this.map.backgroundImage ? svg`
+            <image href="${this.map.backgroundImage}"
+              x="0" y="0" width="${width}" height="${height}"
+              preserveAspectRatio="xMidYMid meet"
+              style="pointer-events:none"/>
+          ` : nothing}
+
           ${this._renderDrawing(drawing)}
 
           <!-- Prévisualisation mur -->
