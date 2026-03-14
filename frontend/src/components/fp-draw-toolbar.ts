@@ -134,7 +134,8 @@ export class FpDrawToolbar extends LitElement {
   private _keyHandler = (e: KeyboardEvent) => {
     if (!this.settings.keyboardShortcutsEnabled) return;
     if (e.ctrlKey || e.altKey || e.metaKey) return;
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    const path = e.composedPath();
+    if (path.some((el) => el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
     const { shortcuts } = this.settings;
     const map: Record<string, DrawTool> = {
       [shortcuts.select]: 'select',
