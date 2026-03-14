@@ -22,6 +22,7 @@ export class FpToolbar extends LitElement {
       font-size: 18px;
       font-weight: 400;
     }
+    .actions { display: flex; align-items: center; gap: 8px; }
     button {
       cursor: pointer;
       padding: 6px 16px;
@@ -31,14 +32,28 @@ export class FpToolbar extends LitElement {
       color: #fff;
       font-size: 13px;
     }
+    button.settings {
+      background: none;
+      color: var(--app-header-text-color, #fff);
+      font-size: 18px;
+      padding: 4px 8px;
+      opacity: 0.7;
+    }
+    button.settings:hover { opacity: 1; }
   `;
 
   render() {
     return html`
       <h1>CartoForge</h1>
-      <button @click=${() => this.dispatchEvent(new CustomEvent('mode-toggle', { bubbles: true }))}>
-        ${this.viewMode === 'view' ? 'Mode édition' : 'Mode vue'}
-      </button>
+      <div class="actions">
+        <button class="settings" title="Paramètres CartoForge"
+          @click=${() => this.dispatchEvent(new CustomEvent('settings-open', { bubbles: true }))}>
+          ⚙
+        </button>
+        <button @click=${() => this.dispatchEvent(new CustomEvent('mode-toggle', { bubbles: true }))}>
+          ${this.viewMode === 'view' ? 'Mode édition' : 'Mode vue'}
+        </button>
+      </div>
     `;
   }
 }

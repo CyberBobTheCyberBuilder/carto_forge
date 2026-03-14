@@ -11,6 +11,7 @@ import type {
 import type { Hass } from '../utils/ha-api';
 import { toggleEntity } from '../utils/ha-api';
 import { snap, moveElement, elementIntersectsRect } from '../utils/drawing';
+import { DEFAULT_SETTINGS, type CartoForgeSettings } from '../types/settings';
 
 const FO_HALF = 28;
 const ZOOM_MIN = 0.2;
@@ -22,6 +23,7 @@ const DRAG_THRESHOLD = 8;
 export class FpMapViewer extends LitElement {
   @property({ attribute: false }) map?: FloorMap;
   @property({ attribute: false }) hass?: Hass;
+  @property({ attribute: false }) settings: CartoForgeSettings = structuredClone(DEFAULT_SETTINGS);
   @property() viewMode: ViewMode = 'view';
   @property() drawTool: DrawTool = 'select';
 
@@ -614,7 +616,9 @@ export class FpMapViewer extends LitElement {
 
     return html`
       ${this.viewMode === 'edit'
-        ? html`<fp-draw-toolbar .activeTool=${this.drawTool}
+        ? html`<fp-draw-toolbar
+            .activeTool=${this.drawTool}
+            .settings=${this.settings}
             @tool-change=${(e: CustomEvent<DrawTool>) => {
               this._selectedIds = new Set();
               this._selectedEntityIds = new Set();

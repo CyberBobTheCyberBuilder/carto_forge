@@ -8,56 +8,27 @@ import {
   mdiMapMarkerPlus,
 } from '@mdi/js';
 import type { DrawTool } from '../types/floorplan';
+import { DEFAULT_SETTINGS, type CartoForgeSettings } from '../types/settings';
 
 interface Tool {
   id: DrawTool;
   path: string;
   label: string;
-  shortcut: string;
   hint: string;
 }
 
 const TOOLS: Tool[] = [
-  {
-    id: 'select',
-    path: mdiCursorDefaultOutline,
-    label: 'Sélection',
-    shortcut: 'V',
-    hint: 'Sélectionner et déplacer',
-  },
-  {
-    id: 'wall',
-    path: mdiVectorLine,
-    label: 'Mur',
-    shortcut: 'W',
-    hint: 'Clic = point · Double-clic = fin · 1er point = fermer',
-  },
-  {
-    id: 'room',
-    path: mdiVectorSquare,
-    label: 'Pièce',
-    shortcut: 'R',
-    hint: 'Glisser pour dessiner un rectangle',
-  },
-  {
-    id: 'eraser',
-    path: mdiEraser,
-    label: 'Gomme',
-    shortcut: 'E',
-    hint: 'Cliquer sur un élément pour le supprimer',
-  },
-  {
-    id: 'entity',
-    path: mdiMapMarkerPlus,
-    label: 'Entité',
-    shortcut: 'P',
-    hint: 'Placer une entité Home Assistant',
-  },
+  { id: 'select', path: mdiCursorDefaultOutline, label: 'Sélection', hint: 'Sélectionner et déplacer' },
+  { id: 'wall',   path: mdiVectorLine,           label: 'Mur',        hint: 'Clic = point · Double-clic = fin · 1er point = fermer' },
+  { id: 'room',   path: mdiVectorSquare,         label: 'Pièce',      hint: 'Glisser pour dessiner un rectangle' },
+  { id: 'eraser', path: mdiEraser,               label: 'Gomme',      hint: 'Cliquer sur un élément pour le supprimer' },
+  { id: 'entity', path: mdiMapMarkerPlus,        label: 'Entité',     hint: 'Placer une entité Home Assistant' },
 ];
 
 @customElement('fp-draw-toolbar')
 export class FpDrawToolbar extends LitElement {
   @property() activeTool: DrawTool = 'select';
+  @property({ attribute: false }) settings: CartoForgeSettings = structuredClone(DEFAULT_SETTINGS);
 
   static styles = css`
     :host {
@@ -161,9 +132,17 @@ export class FpDrawToolbar extends LitElement {
   `;
 
   private _keyHandler = (e: KeyboardEvent) => {
+    if (!this.settings.keyboardShortcutsEnabled) return;
     if (e.ctrlKey || e.altKey || e.metaKey) return;
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-    const map: Record<string, DrawTool> = { v: 'select', w: 'wall', r: 'room', e: 'eraser', p: 'entity' };
+    const { shortcuts } = this.settings;
+    const map: Record<string, DrawTool> = {
+      [shortcuts.select]: 'select',
+      [shortcuts.wall]: 'wall',
+      [shortcuts.room]: 'room',
+      [shortcuts.eraser]: 'eraser',
+      [shortcuts.entity]: 'entity',
+    };
     const tool = map[e.key.toLowerCase()];
     if (tool) {
       e.preventDefault();
@@ -187,6 +166,7 @@ export class FpDrawToolbar extends LitElement {
   }
 
   render() {
+    const { shortcuts, keyboardShortcutsEnabled } = this.settings;
     return html`
       ${TOOLS.map((t, i) => html`
         ${i === 3 || i === 4 ? html`<div class="separator"></div>` : ''}
@@ -196,7 +176,9 @@ export class FpDrawToolbar extends LitElement {
           aria-label=${t.label}
           @click=${() => this._dispatch(t.id)}
         >
-          <span class="shortcut">${t.shortcut}</span>
+          ${keyboardShortcutsEnabled ? html`
+            <span class="shortcut">${shortcuts[t.id as keyof typeof shortcuts].toUpperCase()}</span>
+          ` : ''}
           <span class="icon">
             ${svg`<svg viewBox="0 0 24 24" width="20" height="20"><path d="${t.path}" fill="currentColor"/></svg>`}
           </span>

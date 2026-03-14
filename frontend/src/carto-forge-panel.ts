@@ -4,11 +4,13 @@ import './components/fp-toolbar';
 import './components/fp-map-list';
 import './components/fp-map-viewer';
 import './components/fp-create-map-dialog';
+import './components/fp-settings-dialog';
 import type { Hass } from './utils/ha-api';
 import { loadMaps, fetchApi } from './utils/ha-api';
 import { store } from './store';
 import type { AppState } from './store';
 import type { FloorMap, DrawTool } from './types/floorplan';
+import { loadSettings, saveSettings, type CartoForgeSettings } from './types/settings';
 
 @customElement('carto-forge-panel')
 export class CartoForgePanel extends LitElement {
@@ -17,6 +19,8 @@ export class CartoForgePanel extends LitElement {
 
   @state() private _app: AppState = store.getState();
   @state() private _showCreateDialog = false;
+  @state() private _showSettingsDialog = false;
+  @state() private _settings: CartoForgeSettings = loadSettings();
 
   private _unsub?: () => void;
   private _loaded = false;
@@ -163,6 +167,12 @@ export class CartoForgePanel extends LitElement {
     }
   }
 
+  private _saveSettings(e: CustomEvent<CartoForgeSettings>): void {
+    this._settings = e.detail;
+    saveSettings(e.detail);
+    this._showSettingsDialog = false;
+  }
+
   private async _saveMap(e: CustomEvent<FloorMap>): Promise<void> {
     const map = e.detail;
     store.updateMap(map); // mise à jour locale immédiate
@@ -184,6 +194,7 @@ export class CartoForgePanel extends LitElement {
       <fp-toolbar
         .viewMode=${viewMode}
         @mode-toggle=${() => store.setViewMode(viewMode === 'view' ? 'edit' : 'view')}
+        @settings-open=${() => (this._showSettingsDialog = true)}
       ></fp-toolbar>
 
       ${error ? html`<p style="color:red;padding:8px;margin:0">${error}</p>` : nothing}
@@ -215,6 +226,7 @@ export class CartoForgePanel extends LitElement {
                 .hass=${this.hass}
                 .viewMode=${viewMode}
                 .drawTool=${drawTool}
+                .settings=${this._settings}
                 @map-updated=${this._saveMap}
                 @tool-change=${(e: CustomEvent<DrawTool>) => store.setDrawTool(e.detail)}
               ></fp-map-viewer>
@@ -229,14 +241,20 @@ export class CartoForgePanel extends LitElement {
             `}
       </div>
 
-      ${this._showCreateDialog
-        ? html`
-            <fp-create-map-dialog
-              @create=${this._createMap}
-              @cancel=${() => (this._showCreateDialog = false)}
-            ></fp-create-map-dialog>
-          `
-        : nothing}
+      ${this._showCreateDialog ? html`
+        <fp-create-map-dialog
+          @create=${this._createMap}
+          @cancel=${() => (this._showCreateDialog = false)}
+        ></fp-create-map-dialog>
+      ` : nothing}
+
+      ${this._showSettingsDialog ? html`
+        <fp-settings-dialog
+          .settings=${this._settings}
+          @settings-save=${this._saveSettings}
+          @cancel=${() => (this._showSettingsDialog = false)}
+        ></fp-settings-dialog>
+      ` : nothing}
     `;
   }
 }
