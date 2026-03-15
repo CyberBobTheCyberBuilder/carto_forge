@@ -31,7 +31,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     if FRONTEND_DIR.exists():
         dst_dir.mkdir(parents=True, exist_ok=True)
         for src_file in FRONTEND_DIR.iterdir():
-            shutil.copy2(src_file, dst_dir / src_file.name)
+            try:
+                shutil.copy2(src_file, dst_dir / src_file.name)
+            except shutil.SameFileError:
+                pass
         _LOGGER.debug("Frontend files copied to %s", dst_dir)
     else:
         _LOGGER.warning("CartoForge www/ directory not found at %s", FRONTEND_DIR)

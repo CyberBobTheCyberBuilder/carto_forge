@@ -1,6 +1,7 @@
-import { LitElement, html, css } from 'lit';
+import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { PlacedEntity, ViewMode, DrawTool } from '../types/floorplan';
+import { TOGGLEABLE_DOMAINS } from '../utils/ha-api';
 
 // Long-press threshold before the options panel opens
 const LONG_PRESS_MS = 600;
@@ -46,11 +47,28 @@ export class FpEntityIcon extends LitElement {
     }
     :host([data-state="on"])  { animation: glow 2.5s ease-in-out infinite; }
     :host([data-state="off"]) { filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.9)); }
+
+    .state-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.9);
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+      white-space: nowrap;
+      line-height: 1;
+      margin-top: 2px;
+      pointer-events: none;
+    }
   `;
 
   updated(): void {
     if (this.entityState) this.dataset['state'] = this.entityState.state;
-    this.style.cursor = this.drawTool === 'eraser' ? 'cell' : 'pointer';
+    if (this.drawTool === 'eraser') {
+      this.style.cursor = 'cell';
+    } else if (this.viewMode === 'view' && !this._isToggleable()) {
+      this.style.cursor = 'default';
+    } else {
+      this.style.cursor = 'pointer';
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -94,9 +112,13 @@ export class FpEntityIcon extends LitElement {
     }, LONG_PRESS_MS);
   }
 
+  private _isToggleable(): boolean {
+    return TOGGLEABLE_DOMAINS.has(this.placement.entityId.split('.')[0]);
+  }
+
   private _viewUp(): void {
     if (this._pressTimer) { clearTimeout(this._pressTimer); this._pressTimer = null; }
-    if (!this._hasFired) this._emit('fp-click');
+    if (!this._hasFired && this._isToggleable()) this._emit('fp-click');
   }
 
   // -------------------------------------------------------------------------
@@ -186,7 +208,33 @@ export class FpEntityIcon extends LitElement {
     this.removeEventListener('pointercancel', this._onPointerCancel);
   }
 
+  private _getStateLabel(): string {
+    if (!this.entityState) return '';
+    const { state, attributes } = this.entityState;
+    const unit = attributes['unit_of_measurement'] as string | undefined;
+    if (unit) return `${state} ${unit}`;
+    const domain = this.placement.entityId.split('.')[0];
+    if (domain === 'light' && state === 'on') {
+      const brightness = attributes['brightness'] as number | undefined;
+      if (brightness != null) return `${Math.round(brightness / 2.55)}%`;
+    }
+    if (domain === 'climate') {
+      const temp = attributes['current_temperature'] as number | undefined;
+      if (temp != null) return `${temp}°`;
+    }
+    if (domain === 'cover') {
+      const pos = attributes['current_position'] as number | undefined;
+      if (pos != null) return `${pos}%`;
+    }
+    if (['on', 'off', 'unavailable', 'unknown'].includes(state)) return '';
+    return state.length <= 10 ? state : `${state.substring(0, 8)}…`;
+  }
+
   render() {
-    return html`<ha-icon icon="${this.placement.icon ?? 'mdi:help-circle'}"></ha-icon>`;
+    const label = this._getStateLabel();
+    return html`
+      <ha-icon icon="${this.placement.icon ?? 'mdi:help-circle'}"></ha-icon>
+      ${label ? html`<span class="state-label">${label}</span>` : nothing}
+    `;
   }
 }

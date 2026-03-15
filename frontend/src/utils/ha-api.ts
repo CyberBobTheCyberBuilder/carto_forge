@@ -39,6 +39,12 @@ export function loadMaps(hass: Hass): Promise<FloorMap[]> {
   return fetchApi<FloorMap[]>(hass, '/carto_forge/maps');
 }
 
+export const TOGGLEABLE_DOMAINS = new Set([
+  'switch', 'light', 'input_boolean', 'fan', 'automation',
+  'script', 'scene', 'media_player', 'cover', 'lock',
+  'vacuum', 'humidifier', 'remote', 'siren',
+]);
+
 /** Toggle d'une entité (lumière, prise, etc.) */
 export function toggleEntity(hass: Hass, entityId: string): Promise<void> {
   const domain = entityId.split('.')[0];

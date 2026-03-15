@@ -10,7 +10,7 @@ import type {
   DrawingElement, WallElement, RoomElement, PolygonElement,
 } from '../types/floorplan';
 import type { Hass } from '../utils/ha-api';
-import { toggleEntity } from '../utils/ha-api';
+import { toggleEntity, TOGGLEABLE_DOMAINS } from '../utils/ha-api';
 import { snap, moveElement, elementIntersectsRect } from '../utils/drawing';
 import { DEFAULT_SETTINGS, type CartoForgeSettings } from '../types/settings';
 
@@ -356,7 +356,8 @@ export class FpMapViewer extends LitElement {
   // Entités — clic / config
   // -------------------------------------------------------------------------
   private _onEntityClick = (e: CustomEvent): void => {
-    if (this.hass) toggleEntity(this.hass, e.detail.entityId);
+    const domain = (e.detail.entityId as string).split('.')[0];
+    if (this.hass && TOGGLEABLE_DOMAINS.has(domain)) toggleEntity(this.hass, e.detail.entityId);
   };
 
   private _onEntityConfig = (e: CustomEvent): void => {
