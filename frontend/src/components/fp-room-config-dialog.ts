@@ -97,6 +97,41 @@ export class FpRoomConfigDialog extends LitElement {
       padding: 7px 16px;
     }
     button.save:hover { opacity: 0.85; }
+
+    .field-header {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .help {
+      position: relative;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--divider-color, #555);
+      color: var(--secondary-text-color, #aaa);
+      font-size: 10px; font-weight: 700;
+      cursor: default;
+      flex-shrink: 0;
+    }
+    .help::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%; transform: translateX(-50%);
+      background: #1a1a2e;
+      color: #e0e0e0;
+      font-size: 12px; font-weight: 400;
+      line-height: 1.4;
+      padding: 7px 10px;
+      border-radius: 6px;
+      white-space: normal;
+      width: 220px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 10;
+    }
+    .help:hover::after, .help:focus::after { opacity: 1; }
   `;
 
   private _save(): void {
@@ -138,7 +173,11 @@ export class FpRoomConfigDialog extends LitElement {
           <div class="section">
             <h3>Indicateur d'état</h3>
             <label>
-              Entité
+              <span class="field-header">
+                Entité
+                <span class="help" tabindex="0"
+                  data-tip="ID de l'entité HA dont l'état pilote la couleur. Ex : binary_sensor.alarme, alarm_control_panel.maison">?</span>
+              </span>
               <input type="text" list="entity-list-room" .value=${this._stateEntity}
                 @input=${(e: InputEvent) => this._stateEntity = (e.target as HTMLInputElement).value}
                 placeholder="binary_sensor.alarme" />
@@ -148,7 +187,11 @@ export class FpRoomConfigDialog extends LitElement {
             </label>
             ${this._stateEntity ? html`
               <label>
-                Couleur active
+                <span class="field-header">
+                  Couleur active
+                  <span class="help" tabindex="0"
+                    data-tip="Couleur de remplissage quand l'entité est active (allumée, ouverte, armée…). Sans entité liée, la couleur de fond reste fixe.">?</span>
+                </span>
                 <div class="color-row">
                   <input type="color" .value=${this._activeColor}
                     @input=${(e: InputEvent) => this._activeColor = (e.target as HTMLInputElement).value} />

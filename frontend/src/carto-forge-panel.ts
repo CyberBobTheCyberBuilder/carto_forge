@@ -3,7 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import './components/fp-toolbar';
 import './components/fp-map-list';
 import './components/fp-map-viewer';
-import './components/fp-create-map-dialog';
+import './components/fp-map-settings-dialog';
 import './components/fp-settings-dialog';
 import type { Hass } from './utils/ha-api';
 import { loadMaps, fetchApi } from './utils/ha-api';
@@ -109,10 +109,10 @@ export class CartoForgePanel extends LitElement {
     }
   }
 
-  private async _createMap(e: CustomEvent<{ name: string; width: number; height: number }>): Promise<void> {
+  private async _createMap(e: CustomEvent<{ name: string; width: number; height: number; backgroundColor: string; backgroundImage: string | null }>): Promise<void> {
     this._showCreateDialog = false;
-    const { name, width, height } = e.detail;
-    const newMap: Omit<FloorMap, 'id'> = { name, width, height, drawing: [], entities: [] };
+    const { name, width, height, backgroundColor, backgroundImage } = e.detail;
+    const newMap: Omit<FloorMap, 'id'> = { name, width, height, backgroundColor, backgroundImage, drawing: [], entities: [] };
     try {
       const created = await fetchApi<FloorMap>(this.hass, '/carto_forge/maps', {
         method: 'POST',
@@ -242,10 +242,11 @@ export class CartoForgePanel extends LitElement {
       </div>
 
       ${this._showCreateDialog ? html`
-        <fp-create-map-dialog
+        <fp-map-settings-dialog
+          mode="create"
           @create=${this._createMap}
           @cancel=${() => (this._showCreateDialog = false)}
-        ></fp-create-map-dialog>
+        ></fp-map-settings-dialog>
       ` : nothing}
 
       ${this._showSettingsDialog ? html`
