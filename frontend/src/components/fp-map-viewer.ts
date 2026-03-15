@@ -5,6 +5,7 @@ import './fp-entity-config-dialog';
 import './fp-add-entity-dialog';
 import './fp-draw-toolbar';
 import './fp-label-dialog';
+import './fp-room-config-dialog';
 import type {
   FloorMap, PlacedEntity, ViewMode, DrawTool,
   DrawingElement, WallElement, RoomElement, PolygonElement,
@@ -36,6 +37,8 @@ export class FpMapViewer extends LitElement {
     elementId?: string;
     current?: string;
   } | null = null;
+  // Modale config pièce/polygone (label + entité + couleur)
+  @state() private _roomConfig: RoomElement | PolygonElement | null = null;
 
   // ---- Sélection & déplacement d'éléments dessinés ----
   @state() private _selectedIds = new Set<string>();
@@ -330,16 +333,12 @@ export class FpMapViewer extends LitElement {
     this._elemDragStart = this._toSvg(e);
     this._elemDragStarted = false;
 
-    // Long press → ouvre la modale de label (pièces et polygones uniquement)
+    // Long press → ouvre la modale de config (pièces et polygones uniquement)
     if (el.type !== 'wall') {
       this._elemLongPressTimer = setTimeout(() => {
         this._elemLongPressTimer = null;
         if (!this._elemDragStarted) {
-          this._labelDialog = {
-            mode: 'edit',
-            elementId: el.id,
-            current: (el as { label?: string }).label,
-          };
+          this._roomConfig = el as RoomElement | PolygonElement;
         }
       }, 600);
     }
@@ -533,10 +532,35 @@ export class FpMapViewer extends LitElement {
     // _wallPoints conservés jusqu'à la confirmation
   }
 
-  private _editElementLabel(e: Event, elementId: string, currentLabel?: string): void {
+  private _editElementLabel(e: Event, el: RoomElement | PolygonElement): void {
     if (this.viewMode !== 'edit' || this.drawTool !== 'select') return;
     e.stopPropagation();
-    this._labelDialog = { mode: 'edit', elementId, current: currentLabel };
+    this._roomConfig = el;
+  }
+
+  private _onRoomConfigUpdate = (e: CustomEvent): void => {
+    if (!this.map) return;
+    const { id, label, stateEntity, activeColor } = e.detail;
+    this._emitMapUpdate({
+      ...this.map,
+      drawing: this.map.drawing.map((d) =>
+        d.id === id
+          ? { ...d, label: label ?? undefined, stateEntity: stateEntity ?? undefined, activeColor: activeColor ?? undefined }
+          : d
+      ),
+    });
+    this._roomConfig = null;
+  };
+
+  // States considered "inactive" — anything else triggers activeColor
+  private static _INACTIVE = new Set(['off', 'unavailable', 'unknown', 'closed', 'disarmed', 'idle', 'paused', 'standby']);
+
+  private _getRoomFill(el: RoomElement | PolygonElement): string {
+    if (el.stateEntity && el.activeColor) {
+      const state = this.hass?.states[el.stateEntity]?.state;
+      if (state && !FpMapViewer._INACTIVE.has(state)) return el.activeColor;
+    }
+    return el.fill ?? 'rgba(255,255,255,0.05)';
   }
 
   private _onLabelConfirm = (e: CustomEvent<{ label: string }>): void => {
@@ -791,10 +815,10 @@ export class FpMapViewer extends LitElement {
           <g transform="${roomTransform}" style="${eraserStyle}"
             @pointerdown=${selectPointerDown}
             @click=${() => this._eraseElement(el.id)}
-            @dblclick=${(e: Event) => this._editElementLabel(e, el.id, el.label)}
+            @dblclick=${(e: Event) => this._editElementLabel(e, el)}
           >
             <rect x="${rx}" y="${ry}" width="${rw}" height="${rh}"
-              fill="${el.fill ?? 'rgba(255,255,255,0.05)'}"
+              fill="${this._getRoomFill(el)}"
               stroke="${isSelected ? '#03a9f4' : (el.stroke ?? '#aaaaaa')}"
               stroke-width="2"
               stroke-dasharray="${isSelected ? '6 3' : 'none'}"/>
@@ -813,10 +837,10 @@ export class FpMapViewer extends LitElement {
           <g transform="${transform}" style="${eraserStyle}"
             @pointerdown=${selectPointerDown}
             @click=${() => this._eraseElement(el.id)}
-            @dblclick=${(e: Event) => this._editElementLabel(e, el.id, el.label)}
+            @dblclick=${(e: Event) => this._editElementLabel(e, el)}
           >
             <polygon points="${pts}"
-              fill="${el.fill ?? 'rgba(255,255,255,0.05)'}"
+              fill="${this._getRoomFill(el)}"
               stroke="${isSelected ? '#03a9f4' : (el.stroke ?? '#aaaaaa')}"
               stroke-width="2"
               stroke-dasharray="${isSelected ? '6 3' : 'none'}"
@@ -994,6 +1018,15 @@ export class FpMapViewer extends LitElement {
           @add-entity=${this._onDialogAddEntity}
           @cancel=${this._onDialogCancel}
         ></fp-add-entity-dialog>
+      ` : nothing}
+
+      ${this._roomConfig ? html`
+        <fp-room-config-dialog
+          .element=${this._roomConfig}
+          .hass=${this.hass}
+          @room-config-update=${this._onRoomConfigUpdate}
+          @cancel=${() => { this._roomConfig = null; }}
+        ></fp-room-config-dialog>
       ` : nothing}
 
       ${this._labelDialog ? html`

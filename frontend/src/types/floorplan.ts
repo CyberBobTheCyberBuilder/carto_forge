@@ -20,9 +20,11 @@ export interface RoomElement {
   y: number;
   width: number;
   height: number;
-  fill?: string;   // défaut : 'rgba(255,255,255,0.05)'
-  stroke?: string; // défaut : '#aaaaaa'
+  fill?: string;        // défaut : 'rgba(255,255,255,0.05)'
+  stroke?: string;      // défaut : '#aaaaaa'
   label?: string;
+  stateEntity?: string; // entité dont l'état pilote la couleur
+  activeColor?: string; // couleur de remplissage quand l'état est actif
 }
 
 export interface PolygonElement {
@@ -32,6 +34,8 @@ export interface PolygonElement {
   fill?: string;
   stroke?: string;
   label?: string;
+  stateEntity?: string;
+  activeColor?: string;
 }
 
 export type DrawingElement = WallElement | RoomElement | PolygonElement;
