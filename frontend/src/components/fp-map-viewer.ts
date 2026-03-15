@@ -92,6 +92,10 @@ export class FpMapViewer extends LitElement {
   @state() private _canRedo = false;
   private _currentMapId: string | undefined;
 
+  // ---- Copier / Coller ----
+  private _clipboard: DrawingElement[] = [];
+  private _pasteCount = 0;
+
   // ---- Dessin ----
   @state() private _wallPoints: Array<{ x: number; y: number }> = [];
   @state() private _preview: { x: number; y: number } | null = null;
@@ -656,8 +660,47 @@ export class FpMapViewer extends LitElement {
         this._redo();
         return;
       }
+      if (e.key === 'c' && this.viewMode === 'edit') {
+        e.preventDefault();
+        this._copy();
+        return;
+      }
+      if (e.key === 'v' && this.viewMode === 'edit') {
+        e.preventDefault();
+        this._paste();
+        return;
+      }
     }
   };
+
+  private _copy(): void {
+    if (!this.map || this._selectedIds.size === 0) return;
+    this._clipboard = this.map.drawing.filter(el => this._selectedIds.has(el.id));
+    this._pasteCount = 0;
+  }
+
+  private _paste(): void {
+    if (!this.map || this._clipboard.length === 0) return;
+    this._pasteCount++;
+    const offset = this._pasteCount * 20;
+    const pasted = this._clipboard.map(el => this._offsetElement(el, offset));
+    const newIds = new Set(pasted.map(el => el.id));
+    this._emitMapUpdate({ ...this.map, drawing: [...this.map.drawing, ...pasted] });
+    this._selectedIds = newIds;
+    this._selectedEntityIds = new Set();
+  }
+
+  private _offsetElement(el: DrawingElement, offset: number): DrawingElement {
+    const newId = crypto.randomUUID();
+    if (el.type === 'wall') {
+      return { ...el, id: newId, points: el.points.map(p => ({ x: p.x + offset, y: p.y + offset })) };
+    }
+    if (el.type === 'room') {
+      return { ...el, id: newId, x: el.x + offset, y: el.y + offset };
+    }
+    // polygon
+    return { ...el, id: newId, points: el.points.map(p => ({ x: p.x + offset, y: p.y + offset })) };
+  }
 
   private _eraseElement(id: string): void {
     if (!this.map || this.drawTool !== 'eraser') return;
