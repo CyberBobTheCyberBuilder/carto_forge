@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import logging
+import shutil
 import uuid
 from pathlib import Path
 
-from homeassistant.components.http import StaticPathConfig
 from homeassistant.components.panel_custom import async_register_panel
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -18,16 +18,24 @@ from .storage import FloorPlanStorage
 _LOGGER = logging.getLogger(__name__)
 
 FRONTEND_DIR = Path(__file__).parent / "www"
-STATIC_URL = "/carto_forge"
-PANEL_JS_URL = f"{STATIC_URL}/carto-forge-panel.js"
+PANEL_JS_URL = "/local/carto_forge/carto-forge-panel.js"
+
+
+def _copy_frontend(src_dir: Path, dst_dir: Path) -> None:
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    for src in src_dir.iterdir():
+        try:
+            shutil.copy2(src, dst_dir / src.name)
+        except shutil.SameFileError:
+            pass
 
 
 async def _ensure_lovelace_resource(hass: HomeAssistant, url: str) -> None:
-    """Ajoute le JS comme ressource Lovelace si absent ou mal formé."""
+    """Enregistre le JS comme ressource Lovelace (remplace toute entrée carto_forge existante)."""
     store = Store(hass, 1, "lovelace_resources")
     data = await store.async_load() or {"items": []}
     items: list[dict] = data.get("items", [])
-    items = [i for i in items if i.get("url") != url]
+    items = [i for i in items if "carto_forge" not in i.get("url", "")]
     items.append({"id": uuid.uuid4().hex, "url": url, "type": "module"})
     await store.async_save({"items": items})
     _LOGGER.info("CartoForge: ressource Lovelace enregistrée → %s", url)
@@ -44,9 +52,8 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     await async_register_views(hass)
 
     if FRONTEND_DIR.exists():
-        await hass.http.async_register_static_paths(
-            [StaticPathConfig(STATIC_URL, str(FRONTEND_DIR), cache_headers=False)]
-        )
+        dst = Path(hass.config.path("www", "carto_forge"))
+        await hass.async_add_executor_job(_copy_frontend, FRONTEND_DIR, dst)
     else:
         _LOGGER.warning("CartoForge www/ directory not found at %s", FRONTEND_DIR)
 

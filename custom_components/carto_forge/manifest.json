@@ -1,7 +1,7 @@
 {
   "domain": "carto_forge",
   "name": "CartoForge",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "codeowners": ["@CyberBobTheCyberBuilder"],
   "documentation": "https://github.com/CyberBobTheCyberBuilder/carto_forge",
   "issue_tracker": "https://github.com/CyberBobTheCyberBuilder/carto_forge/issues",
