@@ -52,6 +52,10 @@ Then add `carto_forge:` to `configuration.yaml` and restart Home Assistant.
 
 ## Lovelace Card
 
+The card has a built-in visual editor — click **"Add card"** in any dashboard, search for **CartoForge**, and configure your floors and height directly in the UI.
+
+You can also configure it manually in YAML:
+
 ```yaml
 type: custom:carto-forge-card
 map_id: your-map-id       # single floor

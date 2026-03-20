@@ -11,6 +11,13 @@ __pycache__/
 *.pyo
 .venv/
 
+# Fichiers locaux Bobby
+CLAUDE.md
+AGENTS.md
+JOURNAL.md
+TODO.md
+deploy-ha-dev.sh
+
 # Divers
 .DS_Store
 *.log

@@ -4,6 +4,7 @@ import type { FloorMap } from '../types/floorplan';
 import type { Hass } from '../utils/ha-api';
 import { loadMaps } from '../utils/ha-api';
 import './fp-map-viewer';
+import './carto-forge-card-editor';
 
 interface CartoForgeCardConfig {
   type: string;
@@ -14,6 +15,14 @@ interface CartoForgeCardConfig {
 
 @customElement('carto-forge-card')
 export class CartoForgeCard extends LitElement {
+  static getConfigElement(): HTMLElement {
+    return document.createElement('carto-forge-card-editor');
+  }
+
+  static getStubConfig(): CartoForgeCardConfig {
+    return { type: 'custom:carto-forge-card', height: 400 };
+  }
+
   @state() private _maps: FloorMap[] = [];
   @state() private _activeMapId: string | null = null;
   @state() private _loading = false;
@@ -25,9 +34,6 @@ export class CartoForgeCard extends LitElement {
 
   // Lovelace appelle setConfig avant de passer hass
   setConfig(config: CartoForgeCardConfig): void {
-    if (!config.map_id && !config.map_ids?.length) {
-      throw new Error('carto-forge-card : map_id ou map_ids requis');
-    }
     this._config = config;
   }
 
