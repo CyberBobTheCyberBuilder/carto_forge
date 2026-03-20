@@ -5,3 +5,9 @@ save_config:
     config:
       description: Configuration JSON complète des cartes
       example: '{"maps": []}'
+
+reload:
+  name: Recharger CartoForge
+  description: >
+    Recopie les fichiers frontend et recharge le storage
+    sans redémarrer Home Assistant.

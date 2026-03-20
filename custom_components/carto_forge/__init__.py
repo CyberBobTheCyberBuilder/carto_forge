@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall
 
 from .const import DOMAIN
 from .http import async_register_views
@@ -17,16 +17,7 @@ _LOGGER = logging.getLogger(__name__)
 FRONTEND_DIR = Path(__file__).parent / "www"
 
 
-async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Initialisation depuis configuration.yaml."""
-    _LOGGER.debug("Setting up %s", DOMAIN)
-
-    storage = FloorPlanStorage(hass)
-    await storage.async_load()
-    hass.data[DOMAIN] = {"storage": storage}
-
-    # Copie les fichiers frontend dans <config>/www/carto_forge/
-    # (servi nativement par HA sous /local/carto_forge/)
+def _copy_frontend(hass: HomeAssistant) -> None:
     dst_dir = Path(hass.config.path("www", "carto_forge"))
     if FRONTEND_DIR.exists():
         dst_dir.mkdir(parents=True, exist_ok=True)
@@ -39,7 +30,25 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     else:
         _LOGGER.warning("CartoForge www/ directory not found at %s", FRONTEND_DIR)
 
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Initialisation depuis configuration.yaml."""
+    _LOGGER.debug("Setting up %s", DOMAIN)
+
+    storage = FloorPlanStorage(hass)
+    await storage.async_load()
+    hass.data[DOMAIN] = {"storage": storage}
+
+    _copy_frontend(hass)
     await async_register_views(hass)
+
+    async def handle_reload(call: ServiceCall) -> None:
+        """Recharge le frontend et le storage sans redémarrer HA."""
+        _copy_frontend(hass)
+        await hass.data[DOMAIN]["storage"].async_load()
+        _LOGGER.info("CartoForge reloaded")
+
+    hass.services.async_register(DOMAIN, "reload", handle_reload)
 
     _LOGGER.info("%s setup complete", DOMAIN)
     return True
