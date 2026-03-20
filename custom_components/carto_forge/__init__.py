@@ -8,8 +8,7 @@ from pathlib import Path
 
 from homeassistant.components.panel_custom import async_register_panel
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.helpers.storage import Store
+from homeassistant.core import EVENT_HOMEASSISTANT_STARTED, HomeAssistant, ServiceCall
 
 from .const import DOMAIN
 from .http import async_register_views
@@ -31,14 +30,23 @@ def _copy_frontend(src_dir: Path, dst_dir: Path) -> None:
 
 
 async def _ensure_lovelace_resource(hass: HomeAssistant, url: str) -> None:
-    """Enregistre le JS comme ressource Lovelace (remplace toute entrée carto_forge existante)."""
-    store = Store(hass, 1, "lovelace_resources")
-    data = await store.async_load() or {"items": []}
-    items: list[dict] = data.get("items", [])
-    items = [i for i in items if "carto_forge" not in i.get("url", "")]
-    items.append({"id": uuid.uuid4().hex, "url": url, "type": "module"})
-    await store.async_save({"items": items})
-    _LOGGER.info("CartoForge: ressource Lovelace enregistrée → %s", url)
+    """Enregistre le JS via l'API en mémoire de lovelace."""
+    try:
+        lovelace = hass.data.get("lovelace")
+        if lovelace is None:
+            _LOGGER.warning("CartoForge: composant lovelace introuvable")
+            return
+        resources = lovelace.get("resources") or getattr(lovelace, "resources", None)
+        if resources is None:
+            _LOGGER.warning("CartoForge: collection de ressources lovelace introuvable")
+            return
+        existing = [r for r in resources.async_items() if r.get("url") == url]
+        if existing:
+            return
+        await resources.async_create_item({"res_type": "module", "url": url})
+        _LOGGER.info("CartoForge: ressource Lovelace enregistrée → %s", url)
+    except Exception as err:
+        _LOGGER.warning("CartoForge: impossible d'enregistrer la ressource Lovelace: %s", err)
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -70,7 +78,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     except ValueError:
         _LOGGER.debug("Panel cartoforge déjà enregistré")
 
-    await _ensure_lovelace_resource(hass, PANEL_JS_URL)
+    async def _on_ha_started(_event) -> None:
+        await _ensure_lovelace_resource(hass, PANEL_JS_URL)
+
+    hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _on_ha_started)
 
     async def handle_reload(call: ServiceCall) -> None:
         """Recharge le storage sans redémarrer HA."""
