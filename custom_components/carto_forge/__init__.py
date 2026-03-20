@@ -6,6 +6,7 @@ from pathlib import Path
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.frontend import add_extra_js_url
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.components.panel_custom import async_register_panel
 from homeassistant.core import HomeAssistant, ServiceCall
 
@@ -31,7 +32,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     await async_register_views(hass)
 
     if FRONTEND_DIR.exists():
-        hass.http.register_static_path(STATIC_URL, str(FRONTEND_DIR), cache_headers=False)
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(STATIC_URL, str(FRONTEND_DIR), cache_headers=False)]
+        )
     else:
         _LOGGER.warning("CartoForge www/ directory not found at %s", FRONTEND_DIR)
 
