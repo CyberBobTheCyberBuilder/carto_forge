@@ -21,6 +21,7 @@ export class CartoForgePanel extends LitElement {
   @state() private _showCreateDialog = false;
   @state() private _showSettingsDialog = false;
   @state() private _settings: CartoForgeSettings = loadSettings();
+  @state() private _mapListOpen = false;
 
   private _unsub?: () => void;
   private _loaded = false;
@@ -33,7 +34,7 @@ export class CartoForgePanel extends LitElement {
       background: var(--primary-background-color, #1c1c1c);
       color: var(--primary-text-color, #e0e0e0);
     }
-    .layout { display: flex; flex: 1; overflow: hidden; }
+    .layout { display: flex; flex: 1; overflow: hidden; position: relative; }
     .sidebar {
       width: 220px;
       flex-shrink: 0;
@@ -45,6 +46,27 @@ export class CartoForgePanel extends LitElement {
     .sidebar-footer {
       padding: 10px;
       border-top: 1px solid var(--divider-color, #444);
+    }
+    .overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: 29;
+    }
+    @media (max-width: 640px) {
+      .sidebar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 30;
+        transform: translateX(-100%);
+        transition: transform 0.22s ease;
+        background: var(--primary-background-color, #1c1c1c);
+      }
+      .sidebar.open { transform: translateX(0); }
+      .overlay.visible { display: block; }
     }
     .btn-add {
       width: 100%;
@@ -193,19 +215,23 @@ export class CartoForgePanel extends LitElement {
     return html`
       <fp-toolbar
         .viewMode=${viewMode}
+        .currentMapName=${activeMap?.name ?? ''}
         @mode-toggle=${() => store.setViewMode(viewMode === 'view' ? 'edit' : 'view')}
         @settings-open=${() => (this._showSettingsDialog = true)}
+        @map-list-toggle=${() => (this._mapListOpen = !this._mapListOpen)}
       ></fp-toolbar>
 
       ${error ? html`<p style="color:red;padding:8px;margin:0">${error}</p>` : nothing}
 
       <div class="layout">
-        <div class="sidebar">
+        <div class="overlay ${this._mapListOpen ? 'visible' : ''}"
+          @click=${() => (this._mapListOpen = false)}></div>
+        <div class="sidebar ${this._mapListOpen ? 'open' : ''}">
           <div class="sidebar-maps">
             <fp-map-list
               .maps=${maps}
               .activeMapId=${activeMapId}
-              @map-select=${(e: CustomEvent<{ mapId: string }>) => store.setActiveMap(e.detail.mapId)}
+              @map-select=${(e: CustomEvent<{ mapId: string }>) => { store.setActiveMap(e.detail.mapId); this._mapListOpen = false; }}
               @map-settings-save=${this._saveMapSettings}
               @map-delete=${this._deleteMap}
             ></fp-map-list>

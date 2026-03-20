@@ -106,6 +106,9 @@ export class FpMapViewer extends LitElement {
     :host { display: flex; flex-direction: column; width: 100%; height: 100%; overflow: hidden; position: relative; user-select: none; }
     .svg-wrapper { flex: 1; overflow: hidden; touch-action: none; }
     fp-draw-toolbar { position: absolute; left: 14px; top: 14px; z-index: 20; }
+    @media (max-width: 640px) {
+      fp-draw-toolbar { left: 50%; top: auto; bottom: 14px; transform: translateX(-50%); }
+    }
     svg { width: 100%; height: 100%; display: block; cursor: grab; }
     svg.tool-select { cursor: default; }
     svg.tool-wall, svg.tool-room { cursor: crosshair; }

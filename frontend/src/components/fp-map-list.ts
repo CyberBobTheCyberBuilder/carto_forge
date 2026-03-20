@@ -49,6 +49,9 @@ export class FpMapList extends LitElement {
     }
     .map-actions button:hover { background: var(--divider-color, #ddd); color: var(--primary-text-color, #333); }
     .map-actions button.delete:hover { color: #e53935; }
+    @media (hover: none) {
+      .map-actions { display: flex; }
+    }
   `;
 
   private _openSettings(e: Event, m: FloorMap): void {

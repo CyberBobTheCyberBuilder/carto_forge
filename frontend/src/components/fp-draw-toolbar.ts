@@ -143,6 +143,27 @@ export class FpDrawToolbar extends LitElement {
       background: rgba(255, 255, 255, 0.07);
       margin: 2px 6px;
     }
+
+    @media (max-width: 640px) {
+      .shortcut { display: none; }
+      :host {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 2px;
+        padding: 6px;
+        max-width: calc(100vw - 28px);
+        border-radius: 12px;
+      }
+      button { width: 46px; height: 46px; }
+      .separator {
+        width: 1px;
+        height: auto;
+        align-self: stretch;
+        margin: 4px 2px;
+      }
+      button::after { display: none; }
+    }
   `;
 
   private _keyHandler = (e: KeyboardEvent) => {
