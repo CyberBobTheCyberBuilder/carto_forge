@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-import shutil
 from pathlib import Path
 
 from homeassistant.config_entries import ConfigEntry
@@ -17,21 +16,8 @@ from .storage import FloorPlanStorage
 _LOGGER = logging.getLogger(__name__)
 
 FRONTEND_DIR = Path(__file__).parent / "www"
-PANEL_JS_URL = "/local/carto_forge/carto-forge-panel.js"
-
-
-def _copy_frontend(hass: HomeAssistant) -> None:
-    dst_dir = Path(hass.config.path("www", "carto_forge"))
-    if FRONTEND_DIR.exists():
-        dst_dir.mkdir(parents=True, exist_ok=True)
-        for src_file in FRONTEND_DIR.iterdir():
-            try:
-                shutil.copy2(src_file, dst_dir / src_file.name)
-            except shutil.SameFileError:
-                pass
-        _LOGGER.debug("Frontend files copied to %s", dst_dir)
-    else:
-        _LOGGER.warning("CartoForge www/ directory not found at %s", FRONTEND_DIR)
+STATIC_URL = "/carto_forge"
+PANEL_JS_URL = f"{STATIC_URL}/carto-forge-panel.js"
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -42,10 +28,13 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     await storage.async_load()
     hass.data[DOMAIN] = {"storage": storage}
 
-    _copy_frontend(hass)
     await async_register_views(hass)
 
-    # Panneau sidebar — remplace le bloc panel_custom: dans configuration.yaml
+    if FRONTEND_DIR.exists():
+        hass.http.register_static_path(STATIC_URL, str(FRONTEND_DIR), cache_headers=False)
+    else:
+        _LOGGER.warning("CartoForge www/ directory not found at %s", FRONTEND_DIR)
+
     await async_register_panel(
         hass,
         webcomponent_name="carto-forge-panel",
@@ -56,12 +45,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         require_admin=False,
     )
 
-    # Ressource JS globale — remplace l'ajout manuel dans Paramètres → Tableaux de bord → Ressources
     add_extra_js_url(hass, PANEL_JS_URL)
 
     async def handle_reload(call: ServiceCall) -> None:
-        """Recharge le frontend et le storage sans redémarrer HA."""
-        _copy_frontend(hass)
+        """Recharge le storage sans redémarrer HA."""
         await hass.data[DOMAIN]["storage"].async_load()
         _LOGGER.info("CartoForge reloaded")
 
