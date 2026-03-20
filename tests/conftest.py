@@ -9,6 +9,8 @@ HA_MODULES = [
     "homeassistant.helpers.storage",
     "homeassistant.components",
     "homeassistant.components.http",
+    "homeassistant.components.frontend",
+    "homeassistant.components.panel_custom",
     "homeassistant.config_entries",
     "aiohttp",
     "aiohttp.web",
