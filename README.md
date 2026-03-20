@@ -23,20 +23,9 @@ Then add to `configuration.yaml`:
 
 ```yaml
 carto_forge:
-
-panel_custom:
-  - name: carto-forge-panel
-    sidebar_title: CartoForge
-    sidebar_icon: mdi:floor-plan
-    url_path: cartoforge
-    module_url: /local/carto_forge/carto-forge-panel.js
 ```
 
-And add the Lovelace resource in **Settings → Dashboards → Resources**:
-
-| URL | Type |
-|-----|------|
-| `/local/carto_forge/carto-forge-panel.js` | JavaScript Module |
+That's it — the sidebar panel and Lovelace resource are registered automatically.
 
 ### Manual
 
@@ -46,7 +35,7 @@ cd carto_forge/frontend && npm install && npm run build
 cp -r custom_components/carto_forge <your_ha_config>/custom_components/
 ```
 
-Then follow the `configuration.yaml` and Lovelace steps above.
+Then add `carto_forge:` to `configuration.yaml` and restart Home Assistant.
 
 ---
 

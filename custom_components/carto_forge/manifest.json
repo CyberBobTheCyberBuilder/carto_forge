@@ -7,5 +7,6 @@
   "issue_tracker": "https://github.com/CyberBobTheCyberBuilder/carto_forge/issues",
   "integration_type": "service",
   "iot_class": "local_push",
+  "dependencies": ["frontend", "panel_custom"],
   "requirements": []
 }
